@@ -3,6 +3,19 @@ from typing import List, Optional, Union
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import field_validator
 
+def _resolve_sqlite_db_path() -> str:
+    # 1. Explicit override via env
+    if os.getenv("SQLITE_DB_PATH"):
+        return os.getenv("SQLITE_DB_PATH").replace(os.sep, "/")
+    # 2. Inside container environment
+    if os.path.exists("/app"):
+        if os.access("/app", os.W_OK):
+            return "/app/attendai.db"
+        return "/tmp/attendai.db"
+    # 3. Local dev repository root
+    local_base = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+    return os.path.join(local_base, "attendai.db").replace(os.sep, "/")
+
 class Settings(BaseSettings):
     APP_NAME: str = "AttendAI"
     APP_ENV: str = "development"
@@ -14,8 +27,7 @@ class Settings(BaseSettings):
 
     # Database
     DATABASE_URL: str = "postgresql+asyncpg://attendai:password@localhost:5432/attendai"
-    _DB_FILE = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "attendai.db")).replace(os.sep, "/")
-    SQLITE_DATABASE_URL: str = f"sqlite+aiosqlite:///{_DB_FILE}"
+    SQLITE_DATABASE_URL: str = f"sqlite+aiosqlite:///{_resolve_sqlite_db_path()}"
     USE_SQLITE_FALLBACK: bool = True
 
     # Redis
