@@ -6,7 +6,8 @@ from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from app.core.config import settings
-from app.core.database import init_db
+from app.core.database import init_db, get_sessionmaker
+from app.core.init_seed import seed_database_if_empty
 from app.core.exceptions import AttendAIException
 from app.api.v1.api import api_router
 from app.cache.redis_client import get_redis
@@ -21,6 +22,12 @@ logger = logging.getLogger("attendai")
 async def lifespan(app: FastAPI):
     logger.info("Initializing AttendAI database tables...")
     await init_db()
+    try:
+        sessionmaker = get_sessionmaker()
+        async with sessionmaker() as db:
+            await seed_database_if_empty(db)
+    except Exception as e:
+        logger.error(f"Error during bootstrap seeding check: {e}", exc_info=True)
     logger.info("AttendAI backend startup complete.")
     yield
     logger.info("Shutting down AttendAI backend...")
