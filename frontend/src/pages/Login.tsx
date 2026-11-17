@@ -21,13 +21,13 @@ export const Login: React.FC = () => {
       navigate('/');
     } catch (err: any) {
       if (!err.response) {
-        setError('Cannot connect to backend server. Please verify your network connection or VITE_API_URL.');
+        setError(err.message || 'Cannot connect to backend server. Please verify your network connection or VITE_API_URL.');
       } else if (err.response.status === 404) {
         setError('API service endpoint not found (404). Check backend deployment and VITE_API_URL.');
       } else if (err.response.status === 500) {
         setError('Internal server error (500). Please check backend logs and database connection.');
       } else {
-        setError(err.response?.data?.detail || 'Invalid email or password. Please try again.');
+        setError(err.response?.data?.detail || err.message || 'Invalid email or password. Please try again.');
       }
     } finally {
       setLoading(false);

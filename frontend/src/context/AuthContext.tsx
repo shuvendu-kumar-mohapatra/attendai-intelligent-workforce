@@ -19,7 +19,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const initAuth = async () => {
       const savedToken = localStorage.getItem('attendai_token');
       const savedUser = localStorage.getItem('attendai_user');
-      if (savedToken && savedUser) {
+      if (savedToken && savedToken !== 'undefined' && savedUser && savedUser !== 'undefined') {
         try {
           setUser(JSON.parse(savedUser));
           setToken(savedToken);
@@ -35,6 +35,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setUser(null);
           setToken(null);
         }
+      } else {
+        localStorage.removeItem('attendai_token');
+        localStorage.removeItem('attendai_refresh_token');
+        localStorage.removeItem('attendai_user');
       }
       setIsLoading(false);
     };
@@ -43,6 +47,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (email: string, password: string): Promise<User> => {
     const res = await api.post('/auth/login', { email, password });
+    if (!res.data || !res.data.access_token || !res.data.user) {
+      throw new Error('API returned an empty response. The frontend is currently reaching a static web server rather than the AttendAI backend API. Please configure VITE_API_URL to point to your backend Web Service.');
+    }
     const { access_token, refresh_token, user: userData } = res.data;
     localStorage.setItem('attendai_token', access_token);
     localStorage.setItem('attendai_refresh_token', refresh_token);
