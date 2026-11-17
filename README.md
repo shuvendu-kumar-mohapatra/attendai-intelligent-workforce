@@ -1,6 +1,10 @@
 # AttendAI
 ### Intelligent Workforce. Smarter Decisions.
 
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-attendai--intelligent--workforce.onrender.com-blue?style=for-the-badge&logo=render)](https://attendai-intelligent-workforce.onrender.com/)
+
+🌐 **Live Production Application**: [https://attendai-intelligent-workforce.onrender.com/](https://attendai-intelligent-workforce.onrender.com/)
+
 [![Python](https://img.shields.io/badge/Python-3.12-blue.svg?logo=python&logoColor=white)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-1.0.0-009688.svg?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![React](https://img.shields.io/badge/React-18-61DAFB.svg?logo=react&logoColor=black)](https://react.dev)
@@ -431,6 +435,9 @@ For full installation details, see [Setup & Installation Guide](docs/setup-and-i
 ---
 
 ## 15. Demonstration Accounts
+
+> [!TIP]
+> You can test these accounts immediately on the live production deployment at **[https://attendai-intelligent-workforce.onrender.com/](https://attendai-intelligent-workforce.onrender.com/)** without needing to install anything locally.
 
 The database seeder provisions verified demonstration accounts with active shifts and attendance histories:
 

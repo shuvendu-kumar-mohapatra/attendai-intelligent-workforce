@@ -1,7 +1,8 @@
 import uuid
+import random
 import logging
 from datetime import datetime, date, time, timedelta
-from sqlalchemy import select, func
+from sqlalchemy import select, func, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import hash_password
@@ -12,6 +13,9 @@ from app.models.models import (
 )
 
 logger = logging.getLogger("attendai.seed")
+
+# Deterministic seed for reproducible testing
+random.seed(42)
 
 DEPARTMENTS = [
     {"name": "Engineering", "code": "ENG"},
@@ -27,6 +31,30 @@ SHIFTS = [
     {"name": "Morning Shift", "code": "MOR", "start_time": time(8, 0), "end_time": time(16, 30), "grace": 15, "req_hours": 8.0, "overnight": False},
     {"name": "Evening Shift", "code": "EVE", "start_time": time(14, 0), "end_time": time(22, 30), "grace": 15, "req_hours": 8.0, "overnight": False},
     {"name": "Night Shift", "code": "NOC", "start_time": time(22, 0), "end_time": time(6, 30), "grace": 15, "req_hours": 8.0, "overnight": True}
+]
+
+FIRST_NAMES = [
+    "James", "Mary", "Robert", "Patricia", "John", "Jennifer", "Michael", "Linda",
+    "David", "Elizabeth", "William", "Barbara", "Richard", "Susan", "Joseph", "Jessica",
+    "Thomas", "Sarah", "Charles", "Karen", "Christopher", "Nancy", "Daniel", "Lisa",
+    "Matthew", "Betty", "Anthony", "Margaret", "Mark", "Sandra", "Donald", "Ashley",
+    "Steven", "Kimberly", "Paul", "Emily", "Andrew", "Donna", "Joshua", "Michelle",
+    "Kenneth", "Dorothy", "Kevin", "Carol", "Brian", "Amanda", "George", "Melissa",
+    "Timothy", "Deborah", "Ronald", "Stephanie", "Edward", "Rebecca", "Jason", "Sharon"
+]
+
+LAST_NAMES = [
+    "Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis",
+    "Rodriguez", "Martinez", "Hernandez", "Lopez", "Gonzalez", "Wilson", "Anderson",
+    "Thomas", "Taylor", "Moore", "Jackson", "Martin", "Lee", "Perez", "Thompson",
+    "White", "Harris", "Sanchez", "Clark", "Ramirez", "Lewis", "Robinson", "Walker",
+    "Young", "Allen", "King", "Wright", "Scott", "Torres", "Nguyen", "Hill", "Flores"
+]
+
+DESIGNATIONS = [
+    "Software Engineer", "Senior Software Engineer", "Product Manager", "UX Designer",
+    "HR Specialist", "Talent Acquisition Lead", "Financial Analyst", "Operations Manager",
+    "Account Executive", "Marketing Coordinator", "Support Engineer", "Customer Success Lead"
 ]
 
 SAMPLE_POLICIES = [
@@ -51,18 +79,35 @@ SAMPLE_POLICIES = [
 
 async def seed_database_if_empty(db: AsyncSession) -> bool:
     """
-    Checks if the database is unpopulated (no User records).
-    If empty, automatically populates the default Organization, Departments,
-    Shifts, the 3 Primary Demo Accounts (Admin, HR Manager, Employee),
-    shift assignments, and sample attendance history.
+    Checks if the database has full workforce data (>= 100 employees).
+    If underpopulated, seeds the full 200 workforce employees, shift assignments,
+    60 days of attendance history across all departments, realistic anomalies,
+    and leave records to match the rich local demonstration environment.
     """
-    stmt = select(func.count(User.id))
-    user_count = (await db.execute(stmt)).scalar() or 0
-    if user_count > 0:
-        logger.info(f"Database already contains {user_count} users. Auto-seed skipped.")
+    stmt = select(func.count(Employee.id))
+    emp_count = (await db.execute(stmt)).scalar() or 0
+    if emp_count >= 100:
+        logger.info(f"Database already contains {emp_count} employees. Full workforce seeding skipped.")
         return False
 
-    logger.info("Empty database detected. Initiating automated bootstrap seeding...")
+    logger.info(f"Database has {emp_count} employees (< 100). Initiating full workforce auto-seed...")
+
+    # Clear placeholder data if any exists to avoid duplicate key conflicts
+    if emp_count > 0:
+        logger.info("Purging underpopulated placeholder records...")
+        await db.execute(delete(AttendanceAnomaly))
+        await db.execute(delete(AttendanceBreak))
+        await db.execute(delete(AttendanceRecord))
+        await db.execute(delete(LeaveRecord))
+        await db.execute(delete(PolicyChunk))
+        await db.execute(delete(Policy))
+        await db.execute(delete(EmployeeShiftAssignment))
+        await db.execute(delete(Employee))
+        await db.execute(delete(Shift))
+        await db.execute(delete(Department))
+        await db.execute(delete(User))
+        await db.execute(delete(Organization))
+        await db.flush()
 
     # 1. Organization
     org = Organization(
@@ -74,7 +119,7 @@ async def seed_database_if_empty(db: AsyncSession) -> bool:
     await db.flush()
 
     # 2. Departments
-    dept_map = {}
+    dept_objs = []
     for d in DEPARTMENTS:
         dept = Department(
             id=str(uuid.uuid4()),
@@ -83,11 +128,11 @@ async def seed_database_if_empty(db: AsyncSession) -> bool:
             code=d["code"]
         )
         db.add(dept)
-        dept_map[d["code"]] = dept
+        dept_objs.append(dept)
     await db.flush()
 
     # 3. Shifts
-    shift_map = {}
+    shift_objs = []
     for s in SHIFTS:
         sh = Shift(
             id=str(uuid.uuid4()),
@@ -101,11 +146,11 @@ async def seed_database_if_empty(db: AsyncSession) -> bool:
             is_overnight=s["overnight"]
         )
         db.add(sh)
-        shift_map[s["code"]] = sh
+        shift_objs.append(sh)
     await db.flush()
 
     # 4. Primary Demo Users
-    # 4a. System Admin
+    # 4a. Admin
     admin_user = User(
         id=str(uuid.uuid4()),
         organization_id=org.id,
@@ -139,27 +184,11 @@ async def seed_database_if_empty(db: AsyncSession) -> bool:
     db.add(emp_user)
     await db.flush()
 
-    # 5. Link Employee Profiles
-    hr_emp = Employee(
-        id=str(uuid.uuid4()),
-        organization_id=org.id,
-        department_id=dept_map["HR"].id,
-        user_id=hr_user.id,
-        employee_code="EMP002",
-        first_name="Eleanor",
-        last_name="Vance",
-        email="hrmanager@attendai.com",
-        phone="+1-555-0102",
-        designation="HR Director",
-        date_of_joining=date(2022, 5, 10),
-        is_active=True
-    )
-    db.add(hr_emp)
-
+    # 5. Primary Employee profiles
     demo_emp = Employee(
         id=str(uuid.uuid4()),
         organization_id=org.id,
-        department_id=dept_map["ENG"].id,
+        department_id=dept_objs[0].id,
         user_id=emp_user.id,
         employee_code="EMP001",
         first_name="Alex",
@@ -171,90 +200,193 @@ async def seed_database_if_empty(db: AsyncSession) -> bool:
         is_active=True
     )
     db.add(demo_emp)
+
+    demo_hr_emp = Employee(
+        id=str(uuid.uuid4()),
+        organization_id=org.id,
+        department_id=dept_objs[1].id,
+        user_id=hr_user.id,
+        employee_code="EMP002",
+        first_name="Eleanor",
+        last_name="Vance",
+        email="hrmanager@attendai.com",
+        phone="+1-555-0102",
+        designation="HR Director",
+        date_of_joining=date(2022, 5, 10),
+        is_active=True
+    )
+    db.add(demo_hr_emp)
     await db.flush()
 
-    # Update HR manager as manager of HR dept
-    dept_map["HR"].manager_id = hr_emp.id
+    # Manager of HR department
+    dept_objs[1].manager_id = demo_hr_emp.id
 
-    # 6. Assign Shifts
-    gen_shift = shift_map["GEN"]
-    for emp_record in [hr_emp, demo_emp]:
+    employees_list = [demo_emp, demo_hr_emp]
+
+    # 6. Generate 198 additional workforce employees (Total 200)
+    logger.info("Generating 198 workforce employees...")
+    for i in range(3, 201):
+        fn = random.choice(FIRST_NAMES)
+        ln = random.choice(LAST_NAMES)
+        dept = random.choice(dept_objs)
+        code = f"EMP{i:03d}"
+        email = f"{fn.lower()}.{ln.lower()}{i}@attendai.com"
+        designation = random.choice(DESIGNATIONS)
+        join_date = date(2022, 1, 1) + timedelta(days=random.randint(0, 700))
+
+        u_id = str(uuid.uuid4())
+        u = User(
+            id=u_id,
+            organization_id=org.id,
+            email=email,
+            hashed_password=hash_password("AttendAI@123"),
+            role="employee",
+            is_active=True
+        )
+        db.add(u)
+
+        emp = Employee(
+            id=str(uuid.uuid4()),
+            organization_id=org.id,
+            department_id=dept.id,
+            user_id=u_id,
+            employee_code=code,
+            first_name=fn,
+            last_name=ln,
+            email=email,
+            phone=f"+1-555-{i:04d}",
+            designation=designation,
+            date_of_joining=join_date,
+            is_active=True
+        )
+        db.add(emp)
+        employees_list.append(emp)
+
+    await db.flush()
+
+    # 7. Assign Shifts to 200 Employees
+    gen_shift = shift_objs[0]
+    for emp in employees_list:
+        assigned_shift = random.choice(shift_objs) if random.random() < 0.25 else gen_shift
         assign = EmployeeShiftAssignment(
             id=str(uuid.uuid4()),
-            employee_id=emp_record.id,
-            shift_id=gen_shift.id,
-            effective_from=emp_record.date_of_joining,
+            employee_id=emp.id,
+            shift_id=assigned_shift.id,
+            effective_from=emp.date_of_joining,
             is_active=True
         )
         db.add(assign)
     await db.flush()
 
-    # 7. Seed 30-Day Attendance History for Demo Employee Alex Mercer
+    # 8. Simulate 60 Days of Attendance History
+    logger.info("Simulating 60 days of workforce attendance...")
     today = date.today()
-    for day_offset in range(30, -1, -1):
+    created_records_count = 0
+    anomaly_count = 0
+
+    for day_offset in range(59, -1, -1):
         cur_date = today - timedelta(days=day_offset)
         # Skip weekends
         if cur_date.weekday() >= 5:
             continue
 
-        # Alternate realistic attendance
-        is_late = (day_offset % 7 == 2)
-        base_clock_in = datetime.combine(cur_date, time(9, 0))
-        if is_late:
-            clock_in_time = base_clock_in + timedelta(minutes=22)
-            late_min = 22
-        else:
-            clock_in_time = base_clock_in - timedelta(minutes=(day_offset % 8) + 1)
-            late_min = 0
+        for emp in employees_list:
+            roll = random.random()
+            if roll < 0.08:
+                continue  # Absent
 
-        base_clock_out = datetime.combine(cur_date, time(17, 30))
-        clock_out_time = base_clock_out + timedelta(minutes=(day_offset % 30))
-        worked_mins = int((clock_out_time - clock_in_time).total_seconds() / 60) - 45
-        ot_mins = max(0, worked_mins - 480)
+            is_late = roll < 0.22
+            is_overtime = roll > 0.85
+            is_missing_punch = (roll > 0.78 and roll < 0.81 and day_offset > 0)
 
-        rec = AttendanceRecord(
-            id=str(uuid.uuid4()),
-            organization_id=org.id,
-            employee_id=demo_emp.id,
-            date=cur_date,
-            clock_in=clock_in_time,
-            clock_out=clock_out_time,
-            worked_minutes=worked_mins,
-            late_minutes=late_min,
-            overtime_minutes=ot_mins,
-            status="late" if is_late else "present"
-        )
-        db.add(rec)
-        await db.flush()
+            shift_start = datetime.combine(cur_date, time(9, 0))
+            if is_late:
+                clock_in_time = shift_start + timedelta(minutes=random.randint(18, 55))
+                late_min = int((clock_in_time - shift_start).total_seconds() / 60)
+                status_str = "late"
+            else:
+                clock_in_time = shift_start - timedelta(minutes=random.randint(5, 15))
+                late_min = 0
+                status_str = "present"
 
-        # Add lunch break
-        b_start = datetime.combine(cur_date, time(13, 0))
-        b_end = datetime.combine(cur_date, time(13, 45))
-        db.add(AttendanceBreak(
-            id=str(uuid.uuid4()),
-            attendance_record_id=rec.id,
-            break_start=b_start,
-            break_end=b_end,
-            duration_minutes=45,
-            reason="Lunch"
-        ))
+            if is_missing_punch:
+                clock_out_time = None
+                worked_min = 0
+                ot_min = 0
+                status_str = "incomplete"
+            elif is_overtime:
+                worked_min = 480 + random.randint(60, 240)
+                clock_out_time = clock_in_time + timedelta(minutes=worked_min + 60)
+                ot_min = worked_min - 480
+            else:
+                worked_min = 480 + random.randint(-15, 30)
+                clock_out_time = clock_in_time + timedelta(minutes=worked_min + 60)
+                ot_min = max(0, worked_min - 480)
 
-        # Add anomaly if late
-        if is_late:
-            db.add(AttendanceAnomaly(
-                id=str(uuid.uuid4()),
+            rec_id = str(uuid.uuid4())
+            rec = AttendanceRecord(
+                id=rec_id,
                 organization_id=org.id,
-                employee_id=demo_emp.id,
-                attendance_record_id=rec.id,
+                employee_id=emp.id,
                 date=cur_date,
-                anomaly_type="repeated_late",
-                severity="low",
-                detection_method="rule_based",
-                explanation="Clock-in at 09:22 exceeded 15 minute grace period.",
-                status="resolved" if day_offset > 3 else "pending"
-            ))
+                clock_in=clock_in_time,
+                clock_out=clock_out_time,
+                worked_minutes=worked_min,
+                overtime_minutes=ot_min,
+                late_minutes=late_min,
+                status=status_str,
+                is_corrected=False
+            )
+            db.add(rec)
+            created_records_count += 1
 
-    # 8. Policies
+            if clock_out_time:
+                b_start = clock_in_time + timedelta(hours=4)
+                b_end = b_start + timedelta(minutes=random.randint(30, 45))
+                db.add(AttendanceBreak(
+                    id=str(uuid.uuid4()),
+                    attendance_record_id=rec_id,
+                    break_start=b_start,
+                    break_end=b_end,
+                    duration_minutes=int((b_end - b_start).total_seconds() / 60),
+                    reason="Lunch Break"
+                ))
+
+            # Anomalies
+            if anomaly_count < 40:
+                if is_missing_punch:
+                    db.add(AttendanceAnomaly(
+                        id=str(uuid.uuid4()),
+                        organization_id=org.id,
+                        employee_id=emp.id,
+                        attendance_record_id=rec_id,
+                        date=cur_date,
+                        anomaly_type="missing_clock_out",
+                        severity="high",
+                        score=0.88,
+                        detection_method="rule_based",
+                        explanation=f"Missing clock-out detected for {emp.first_name} {emp.last_name} on {cur_date}.",
+                        status="pending" if day_offset < 10 else "resolved",
+                        resolution_notes="Resolved upon supervisor confirmation." if day_offset >= 10 else None
+                    ))
+                    anomaly_count += 1
+                elif is_overtime and ot_min > 180:
+                    db.add(AttendanceAnomaly(
+                        id=str(uuid.uuid4()),
+                        organization_id=org.id,
+                        employee_id=emp.id,
+                        attendance_record_id=rec_id,
+                        date=cur_date,
+                        anomaly_type="excessive_overtime",
+                        severity="medium",
+                        score=0.72,
+                        detection_method="rule_based",
+                        explanation=f"Worked overtime of {ot_min} minutes exceeds the threshold of 180 minutes.",
+                        status="pending" if day_offset < 7 else "resolved"
+                    ))
+                    anomaly_count += 1
+
+    # 9. HR Policies
     for p in SAMPLE_POLICIES:
         pol_id = str(uuid.uuid4())
         policy = Policy(
@@ -279,19 +411,23 @@ async def seed_database_if_empty(db: AsyncSession) -> bool:
                 token_count=len(content.split())
             ))
 
-    # 9. Sample Leave Record
-    db.add(LeaveRecord(
-        id=str(uuid.uuid4()),
-        organization_id=org.id,
-        employee_id=demo_emp.id,
-        leave_type="annual",
-        start_date=today + timedelta(days=10),
-        end_date=today + timedelta(days=12),
-        days_count=3.0,
-        reason="Annual vacation scheduled with team.",
-        status="approved"
-    ))
+    # 10. Sample Leave Records
+    for i in range(15):
+        emp = random.choice(employees_list[:30])
+        s_date = today + timedelta(days=random.randint(2, 20))
+        e_date = s_date + timedelta(days=random.randint(1, 4))
+        db.add(LeaveRecord(
+            id=str(uuid.uuid4()),
+            organization_id=org.id,
+            employee_id=emp.id,
+            leave_type=random.choice(["annual", "sick", "casual"]),
+            start_date=s_date,
+            end_date=e_date,
+            days_count=float((e_date - s_date).days + 1),
+            reason="Scheduled family vacation and personal time off.",
+            status=random.choice(["pending", "approved"])
+        ))
 
     await db.commit()
-    logger.info("Automated bootstrap seeding completed successfully. Demo accounts are ready.")
+    logger.info(f"Full workforce auto-seed completed! Seeded {len(employees_list)} employees, {created_records_count} attendance records, {anomaly_count} anomalies.")
     return True

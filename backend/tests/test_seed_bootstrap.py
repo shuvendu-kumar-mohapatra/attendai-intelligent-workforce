@@ -1,14 +1,13 @@
 import pytest
-import os
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from app.core.database import Base
 from app.core.init_seed import seed_database_if_empty
-from app.models.models import User
+from app.models.models import User, Employee, AttendanceRecord
 from sqlalchemy import select, func
 
 @pytest.mark.asyncio
-async def test_auto_seed_on_empty_db(tmp_path):
-    db_file = tmp_path / "test_bootstrap.db"
+async def test_full_workforce_auto_seed(tmp_path):
+    db_file = tmp_path / "test_full_bootstrap.db"
     test_engine = create_async_engine(f"sqlite+aiosqlite:///{db_file}")
     
     async with test_engine.begin() as conn:
@@ -21,14 +20,22 @@ async def test_auto_seed_on_empty_db(tmp_path):
         seeded = await seed_database_if_empty(session)
         assert seeded is True
         
-        # Verify 3 demo users
+        # Verify 200 employees
+        emp_count = (await session.execute(select(func.count(Employee.id)))).scalar()
+        assert emp_count == 200
+        
+        # Verify attendance records
+        att_count = (await session.execute(select(func.count(AttendanceRecord.id)))).scalar()
+        assert att_count > 5000
+        
+        # Verify demo users
         users = (await session.execute(select(User))).scalars().all()
         user_emails = {u.email for u in users}
         assert "admin@attendai.com" in user_emails
         assert "hrmanager@attendai.com" in user_emails
         assert "employee@attendai.com" in user_emails
         
-    # 2. Run seed again on non-empty DB -> should skip
+    # 2. Run seed again on populated DB -> should skip
     async with TestSession() as session:
         seeded_again = await seed_database_if_empty(session)
         assert seeded_again is False
