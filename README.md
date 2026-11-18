@@ -24,12 +24,11 @@ AttendAI is a production-grade, AI-powered workforce time-and-attendance managem
 Watch the complete AttendAI walkthrough demonstrating employee clocking, supervisor anomaly triage, grounded AI conversational assistant, policy indexing reader, and custom report builder:
 
 <div align="center">
-  <video src="demo/demo.mp4" width="100%" controls title="AttendAI Platform Demonstration Video">
-    Your browser does not support the video tag. You can view or download the video directly at <a href="demo/demo.mp4">demo/demo.mp4</a>.
-  </video>
+  <a href="demo/demo.mp4" title="Click to watch AttendAI Product Demonstration (7m 59s)">
+    <img src="demo/demo-thumbnail.png" alt="AttendAI Product Demonstration Video" width="820" style="max-width: 100%; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.18);" />
+  </a>
+  <p><em>▶️ <b>Click the card above</b> to launch the full 1080p video walkthrough (<a href="demo/demo.mp4">demo/demo.mp4</a> &bull; 7m 59s &bull; Full HD)</em></p>
 </div>
-
-> 📽️ **Direct Link / Download**: [Watch AttendAI Product Demonstration (`demo/demo.mp4`)](demo/demo.mp4)
 
 ---
 
