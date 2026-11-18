@@ -262,6 +262,28 @@ class LeaveReviewRequest(BaseModel):
     status: str # approved, rejected
     resolution_notes: Optional[str] = None
 
+class LeaveCancelRequest(BaseModel):
+    reason: Optional[str] = "Cancelled by employee"
+
+class LeaveBalanceCategory(BaseModel):
+    leave_type: str
+    entitlement: Optional[float] = None
+    used: float = 0.0
+    pending: float = 0.0
+    available: Optional[float] = None
+
+class LeaveBalanceResponse(BaseModel):
+    employee_id: str
+    employee_name: str
+    employee_code: str
+    year: int
+    categories: Dict[str, LeaveBalanceCategory]
+    total_entitlement: float
+    total_used: float
+    total_pending: float
+    total_available: float
+    pending_requests_count: int
+
 class LeaveResponse(BaseModel):
     id: str
     organization_id: str
@@ -279,6 +301,7 @@ class LeaveResponse(BaseModel):
     employee_name: Optional[str] = None
     employee_code: Optional[str] = None
     department_name: Optional[str] = None
+    reviewer_name: Optional[str] = None
 
     class Config:
         from_attributes = True

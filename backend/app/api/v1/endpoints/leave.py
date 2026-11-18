@@ -1,15 +1,58 @@
 from typing import List, Optional
-from datetime import datetime, timezone
+from datetime import datetime, date, timezone
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, desc
 from app.core.database import get_db
 from app.core.exceptions import NotFoundException, ForbiddenException, ValidationException
 from app.models.models import LeaveRecord, Employee, Department, User
-from app.schemas.schemas import LeaveCreate, LeaveReviewRequest, LeaveResponse
+from app.schemas.schemas import (
+    LeaveCreate, LeaveReviewRequest, LeaveCancelRequest,
+    LeaveResponse, LeaveBalanceResponse
+)
+from app.services.leave_service import LeaveService
 from app.api.deps import get_current_user, get_current_hr_or_admin, get_current_employee_profile
 
 router = APIRouter(prefix="/leave", tags=["Leave Management"])
+
+@router.get("/balances", response_model=LeaveBalanceResponse)
+@router.get("/summary", response_model=LeaveBalanceResponse)
+async def get_leave_balances(
+    employee_id: Optional[str] = None,
+    year: Optional[int] = Query(None, description="Target calendar year (default: current year)"),
+    user: User = Depends(get_current_user),
+    employee: Optional[Employee] = Depends(get_current_employee_profile),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Retrieve live statutory and custom leave balance breakdowns (Annual, Sick, Casual, Unpaid).
+    Regular employees can only view their own balances. HR Managers and Admins can query any employee.
+    """
+    target_emp_id = None
+    if user.role in ["admin", "hr_manager"]:
+        if employee_id:
+            target_emp_id = employee_id
+        elif employee:
+            target_emp_id = employee.id
+        else:
+            # Fallback to first employee in organization
+            first_emp = (await db.execute(
+                select(Employee).where(Employee.organization_id == user.organization_id)
+            )).scalars().first()
+            if not first_emp:
+                raise NotFoundException("No employee records found in organization")
+            target_emp_id = first_emp.id
+    else:
+        if not employee:
+            raise ValidationException("Employee profile not found")
+        target_emp_id = employee.id
+
+    return await LeaveService.calculate_leave_balances(
+        db=db,
+        organization_id=user.organization_id,
+        employee_id=target_emp_id,
+        year=year
+    )
 
 @router.post("", response_model=LeaveResponse, status_code=status.HTTP_201_CREATED)
 async def apply_leave(
@@ -18,6 +61,10 @@ async def apply_leave(
     employee: Optional[Employee] = Depends(get_current_employee_profile),
     db: AsyncSession = Depends(get_db)
 ):
+    """
+    Submit a new leave application with automatic date ordering, overlap checking,
+    and quota limit validation. Emits notifications to organization HR and Admins.
+    """
     target_emp_id = None
     if user.role in ["admin", "hr_manager"] and req.employee_id:
         target_emp_id = req.employee_id
@@ -26,57 +73,32 @@ async def apply_leave(
     else:
         raise ValidationException("Employee profile not found")
 
-    if req.end_date < req.start_date:
-        raise ValidationException("End date cannot precede start date")
-
-    days_count = max(1.0, float((req.end_date - req.start_date).days + 1))
-
-    leave = LeaveRecord(
+    leave = await LeaveService.apply_leave(
+        db=db,
         organization_id=user.organization_id,
-        employee_id=target_emp_id,
-        leave_type=req.leave_type,
-        start_date=req.start_date,
-        end_date=req.end_date,
-        days_count=days_count,
-        reason=req.reason,
-        status="pending"
+        target_employee_id=target_emp_id,
+        req=req,
+        current_user=user
     )
-    db.add(leave)
-    await db.commit()
-    await db.refresh(leave)
-
-    emp = (await db.execute(select(Employee).where(Employee.id == target_emp_id))).scalars().first()
-    dept = (await db.execute(select(Department).where(Department.id == emp.department_id))).scalars().first() if emp and emp.department_id else None
-
-    return {
-        "id": leave.id,
-        "organization_id": leave.organization_id,
-        "employee_id": leave.employee_id,
-        "leave_type": leave.leave_type,
-        "start_date": leave.start_date,
-        "end_date": leave.end_date,
-        "days_count": leave.days_count,
-        "reason": leave.reason,
-        "status": leave.status,
-        "reviewed_by": leave.reviewed_by,
-        "reviewed_at": leave.reviewed_at,
-        "resolution_notes": leave.resolution_notes,
-        "created_at": leave.created_at,
-        "employee_name": f"{emp.first_name} {emp.last_name}" if emp else None,
-        "employee_code": emp.employee_code if emp else None,
-        "department_name": dept.name if dept else "General"
-    }
+    return await LeaveService.format_leave_response(db, leave)
 
 @router.get("", response_model=List[LeaveResponse])
 async def list_leave(
     status_filter: Optional[str] = None,
+    leave_type: Optional[str] = None,
     employee_id: Optional[str] = None,
+    start_date: Optional[date] = None,
+    end_date: Optional[date] = None,
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
     user: User = Depends(get_current_user),
     employee: Optional[Employee] = Depends(get_current_employee_profile),
     db: AsyncSession = Depends(get_db)
 ):
+    """
+    List leave applications. Scoped by role: regular employees only view their own
+    requests; HR Managers and Admins view organization-wide requests.
+    """
     stmt = (
         select(LeaveRecord, Employee, Department)
         .join(Employee, Employee.id == LeaveRecord.employee_id)
@@ -93,12 +115,25 @@ async def list_leave(
 
     if status_filter:
         stmt = stmt.where(LeaveRecord.status == status_filter)
+    if leave_type:
+        stmt = stmt.where(LeaveRecord.leave_type == leave_type.lower().strip())
+    if start_date:
+        stmt = stmt.where(LeaveRecord.start_date >= start_date)
+    if end_date:
+        stmt = stmt.where(LeaveRecord.end_date <= end_date)
 
     stmt = stmt.order_by(desc(LeaveRecord.created_at)).offset(skip).limit(limit)
     res = await db.execute(stmt)
 
     output = []
     for l, emp, dept in res.all():
+        reviewer_name = None
+        if l.reviewed_by:
+            rev_user = (await db.execute(select(User).where(User.id == l.reviewed_by))).scalars().first()
+            if rev_user:
+                rev_emp = (await db.execute(select(Employee).where(Employee.user_id == rev_user.id))).scalars().first()
+                reviewer_name = f"{rev_emp.first_name} {rev_emp.last_name}" if rev_emp else rev_user.email
+
         output.append({
             "id": l.id,
             "organization_id": l.organization_id,
@@ -115,17 +150,22 @@ async def list_leave(
             "created_at": l.created_at,
             "employee_name": f"{emp.first_name} {emp.last_name}",
             "employee_code": emp.employee_code,
-            "department_name": dept.name if dept else "General"
+            "department_name": dept.name if dept else "General",
+            "reviewer_name": reviewer_name
         })
     return output
 
-@router.put("/{leave_id}/review", response_model=LeaveResponse)
-async def review_leave(
+@router.get("/{leave_id}", response_model=LeaveResponse)
+async def get_leave(
     leave_id: str,
-    req: LeaveReviewRequest,
-    user: User = Depends(get_current_hr_or_admin),
+    user: User = Depends(get_current_user),
+    employee: Optional[Employee] = Depends(get_current_employee_profile),
     db: AsyncSession = Depends(get_db)
 ):
+    """
+    Retrieve details of a single leave application by ID.
+    Enforces RBAC: regular employees can only access their own requests.
+    """
     stmt = select(LeaveRecord).where(
         and_(
             LeaveRecord.id == leave_id,
@@ -136,32 +176,51 @@ async def review_leave(
     if not leave:
         raise NotFoundException("Leave request not found")
 
-    leave.status = req.status
-    leave.resolution_notes = req.resolution_notes
-    leave.reviewed_by = user.id
-    leave.reviewed_at = datetime.now(timezone.utc).replace(tzinfo=None)
+    if user.role == "employee":
+        if not employee or leave.employee_id != employee.id:
+            raise ForbiddenException("You do not have permission to view another employee's leave request")
 
-    await db.commit()
-    await db.refresh(leave)
+    return await LeaveService.format_leave_response(db, leave)
 
-    emp = (await db.execute(select(Employee).where(Employee.id == leave.employee_id))).scalars().first()
-    dept = (await db.execute(select(Department).where(Department.id == emp.department_id))).scalars().first() if emp and emp.department_id else None
+@router.put("/{leave_id}/review", response_model=LeaveResponse)
+async def review_leave(
+    leave_id: str,
+    req: LeaveReviewRequest,
+    user: User = Depends(get_current_hr_or_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Approve or reject a pending leave application.
+    Enforces review state validation and dispatches notification to the employee.
+    """
+    leave = await LeaveService.review_leave(
+        db=db,
+        organization_id=user.organization_id,
+        leave_id=leave_id,
+        req=req,
+        reviewer=user
+    )
+    return await LeaveService.format_leave_response(db, leave)
 
-    return {
-        "id": leave.id,
-        "organization_id": leave.organization_id,
-        "employee_id": leave.employee_id,
-        "leave_type": leave.leave_type,
-        "start_date": leave.start_date,
-        "end_date": leave.end_date,
-        "days_count": leave.days_count,
-        "reason": leave.reason,
-        "status": leave.status,
-        "reviewed_by": leave.reviewed_by,
-        "reviewed_at": leave.reviewed_at,
-        "resolution_notes": leave.resolution_notes,
-        "created_at": leave.created_at,
-        "employee_name": f"{emp.first_name} {emp.last_name}" if emp else None,
-        "employee_code": emp.employee_code if emp else None,
-        "department_name": dept.name if dept else "General"
-    }
+@router.post("/{leave_id}/cancel", response_model=LeaveResponse)
+@router.delete("/{leave_id}", response_model=LeaveResponse)
+async def cancel_leave(
+    leave_id: str,
+    req: Optional[LeaveCancelRequest] = None,
+    user: User = Depends(get_current_user),
+    employee: Optional[Employee] = Depends(get_current_employee_profile),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Cancel / withdraw a pending leave application.
+    Employees can cancel their own pending requests. HR Managers and Admins can cancel any pending request.
+    """
+    leave = await LeaveService.cancel_leave(
+        db=db,
+        organization_id=user.organization_id,
+        leave_id=leave_id,
+        current_user=user,
+        employee=employee,
+        reason=req.reason if req else None
+    )
+    return await LeaveService.format_leave_response(db, leave)
