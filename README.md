@@ -2,7 +2,7 @@
 ### Intelligent Workforce. Smarter Decisions.
 
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-attendai--intelligent--workforce.onrender.com-blue?style=for-the-badge&logo=render)](https://attendai-intelligent-workforce.onrender.com/)
-[![Demo Video](https://img.shields.io/badge/Demo%20Video-Google%20Drive-E50914?style=for-the-badge&logo=google-drive&logoColor=white)](https://drive.google.com/file/d/1GvfwJ409LN0w3umGJxHjPOq6tWQ5daqf/view?usp=sharing)
+[![Demo Video](https://img.shields.io/badge/Demo%20Video-Watch%20Walkthrough-E50914?style=for-the-badge&logo=youtube&logoColor=white)](#-product-demonstration-video)
 
 🌐 **Live Production Application**: [https://attendai-intelligent-workforce.onrender.com/](https://attendai-intelligent-workforce.onrender.com/)
 
@@ -24,14 +24,10 @@ AttendAI is a production-grade, AI-powered workforce time-and-attendance managem
 Watch the complete AttendAI walkthrough demonstrating employee clocking, supervisor anomaly triage, grounded AI conversational assistant, policy indexing reader, and custom report builder:
 
 <div align="center">
-  <a href="https://drive.google.com/file/d/1GvfwJ409LN0w3umGJxHjPOq6tWQ5daqf/view?usp=sharing" target="_blank" rel="noopener noreferrer" title="Click to watch AttendAI Product Demonstration (Google Drive)">
+  <a href="https://drive.google.com/file/d/1GvfwJ409LN0w3umGJxHjPOq6tWQ5daqf/view?usp=sharing" target="_blank" rel="noopener noreferrer" title="AttendAI Product Demonstration Video">
     <img src="demo/demo-thumbnail.png" alt="AttendAI Product Demonstration Video" width="820" style="max-width: 100%; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.18);" />
   </a>
-  <p>
-    <em>▶️ <b>Click the card above</b> to stream on <a href="https://drive.google.com/file/d/1GvfwJ409LN0w3umGJxHjPOq6tWQ5daqf/view?usp=sharing" target="_blank" rel="noopener noreferrer"><b>Google Drive</b></a> (8 min &bull; Full HD)</em>
-    <br />
-    📁 <b>Repository File</b>: <a href="demo/demo.mp4"><b>demo/demo.mp4</b></a> <em>(direct repository source &amp; download)</em>
-  </p>
+  <p><em>📁 Repository Video File: <a href="demo/demo.mp4"><code>demo/demo.mp4</code></a> (8 min &bull; Full HD 1080p)</em></p>
 </div>
 
 ---
