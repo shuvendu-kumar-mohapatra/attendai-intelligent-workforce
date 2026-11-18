@@ -57,18 +57,51 @@ async def get_policy_user(
 def resolve_safe_file_path(file_path: Optional[str]) -> Optional[str]:
     """
     Safely resolves a file path on disk, preventing directory traversal and handling relative paths.
+    Normalizes path separators to handle Windows and Linux paths interchangeably.
     """
     if not file_path:
         return None
-    abs_path = os.path.abspath(file_path)
-    if os.path.exists(abs_path):
-        return abs_path
-    
-    # Try relative to upload directory
-    basename = os.path.basename(file_path)
+    if os.path.exists(file_path):
+        return os.path.abspath(file_path)
+
+    # Normalize backslashes from Windows paths
+    basename = file_path.replace("\\", "/").split("/")[-1]
+    if not basename:
+        return None
+
+    # Check in configured UPLOAD_DIR
     alt_path = os.path.abspath(os.path.join(settings.UPLOAD_DIR, basename))
     if os.path.exists(alt_path):
         return alt_path
+
+    # Check relative to working directory uploads
+    root_alt = os.path.abspath(os.path.join(os.getcwd(), "uploads", basename))
+    if os.path.exists(root_alt):
+        return root_alt
+
+    return None
+
+async def get_or_restore_policy_file(policy: Policy, db: AsyncSession) -> Optional[str]:
+    """
+    Finds the policy file on disk, or regenerates standard policy documents if missing.
+    """
+    real_path = resolve_safe_file_path(policy.file_path)
+    if real_path and os.path.exists(real_path):
+        return real_path
+
+    # Auto-restore standard policy file if missing
+    try:
+        from app.core.policy_generator import ensure_physical_policy_files
+        upload_dir = os.path.abspath(settings.UPLOAD_DIR)
+        file_map = ensure_physical_policy_files(upload_dir)
+        if policy.title in file_map and os.path.exists(file_map[policy.title]):
+            real_path = file_map[policy.title]
+            policy.file_path = real_path
+            policy.file_size = os.path.getsize(real_path)
+            await db.commit()
+            return real_path
+    except Exception:
+        pass
 
     return None
 
@@ -87,6 +120,13 @@ async def list_policies(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
+    # Ensure all corporate policy documents exist
+    count_stmt = select(func.count(Policy.id)).where(Policy.organization_id == user.organization_id)
+    existing_count = (await db.execute(count_stmt)).scalar() or 0
+    if existing_count < 4:
+        from app.core.policy_generator import seed_policies_if_needed
+        await seed_policies_if_needed(db, user.organization_id)
+
     stmt = (
         select(Policy, func.count(PolicyChunk.id).label("chunk_count"))
         .outerjoin(PolicyChunk, PolicyChunk.policy_id == Policy.id)
@@ -192,7 +232,7 @@ async def get_policy_detail(
     ).order_by(PolicyChunk.page_number.asc(), PolicyChunk.id.asc())
     chunks = (await db.execute(chunks_stmt)).scalars().all()
 
-    real_path = resolve_safe_file_path(policy.file_path)
+    real_path = await get_or_restore_policy_file(policy, db)
     ext = os.path.splitext(real_path)[1].lower() if real_path else ""
 
     return {
@@ -244,7 +284,7 @@ async def get_policy_content(
     ).order_by(PolicyChunk.page_number.asc(), PolicyChunk.id.asc())
     chunks = (await db.execute(chunks_stmt)).scalars().all()
 
-    real_path = resolve_safe_file_path(policy.file_path)
+    real_path = await get_or_restore_policy_file(policy, db)
     ext = os.path.splitext(real_path)[1].lower() if real_path else ""
 
     doc_format = "chunk"
@@ -348,7 +388,7 @@ async def view_policy(
     if not policy:
         raise NotFoundException("Policy document not found")
 
-    real_path = resolve_safe_file_path(policy.file_path)
+    real_path = await get_or_restore_policy_file(policy, db)
     if real_path and os.path.exists(real_path):
         ext = os.path.splitext(real_path)[1].lower()
         media_type = detect_mime_type(ext)
@@ -398,7 +438,7 @@ async def download_policy(
     if not policy:
         raise NotFoundException("Policy document not found")
 
-    real_path = resolve_safe_file_path(policy.file_path)
+    real_path = await get_or_restore_policy_file(policy, db)
     if real_path and os.path.exists(real_path):
         ext = os.path.splitext(real_path)[1].lower()
         media_type = detect_mime_type(ext)

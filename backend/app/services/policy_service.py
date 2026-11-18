@@ -140,4 +140,26 @@ class PolicyService:
                 "content": chunk.content,
                 "citation": f"{policy.title} (Page {chunk.page_number}, {chunk.section})"
             })
+
+        # If no items found, ensure all standard policies are seeded and re-query once
+        if not items:
+            c_count = (await db.execute(
+                select(func.count(PolicyChunk.id)).select_from(PolicyChunk).join(Policy).where(Policy.organization_id == organization_id)
+            )).scalar() or 0
+            if c_count < 9:
+                from app.core.policy_generator import seed_policies_if_needed
+                await seed_policies_if_needed(db, organization_id)
+                re_results = await db.execute(stmt)
+                for chunk, policy in re_results.all():
+                    items.append({
+                        "id": chunk.id,
+                        "policy_id": policy.id,
+                        "title": policy.title,
+                        "category": policy.category,
+                        "section": chunk.section,
+                        "page_number": chunk.page_number,
+                        "content": chunk.content,
+                        "citation": f"{policy.title} (Page {chunk.page_number}, {chunk.section})"
+                    })
+
         return items

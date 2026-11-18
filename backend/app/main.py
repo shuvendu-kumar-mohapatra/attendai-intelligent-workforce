@@ -26,6 +26,8 @@ async def lifespan(app: FastAPI):
         sessionmaker = get_sessionmaker()
         async with sessionmaker() as db:
             await seed_database_if_empty(db)
+            from app.core.policy_generator import seed_policies_if_needed
+            await seed_policies_if_needed(db)
     except Exception as e:
         logger.error(f"Error during bootstrap seeding check: {e}", exc_info=True)
     logger.info("AttendAI backend startup complete.")

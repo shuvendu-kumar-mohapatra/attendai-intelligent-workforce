@@ -71,8 +71,24 @@ SAMPLE_POLICIES = [
         "title": "Comprehensive Leave and Time-Off Guidelines",
         "category": "Leave Management",
         "chunks": [
-            ("Annual Leave Allocation", 1, "Full-time employees accrue 20 days of paid annual leave per calendar year. Annual leave requests should be submitted at least 5 business days in advance via the AttendAI Leave portal and require supervisor approval."),
-            ("Sick and Emergency Leave", 2, "Employees are granted 10 days of paid sick leave per year. Medical certificates are required for consecutive sick leaves exceeding 3 business days. Emergency personal leaves can be approved retrospectively upon manager consultation.")
+            ("Annual Leave Allocation", 1, "Full-time employees accrue 20 days of paid annual leave per calendar year. Annual leave requests should be submitted at least 5 business days in advance via the AttendAI Leave portal and require supervisor approval. Unused leave balances up to a maximum of 5 days can carry over into the following fiscal year."),
+            ("Sick and Emergency Leave", 2, "Employees are granted 10 days of paid sick leave per year. Medical certificates are required for consecutive sick leaves exceeding 3 business days. Emergency personal leaves can be approved retrospectively upon manager consultation. Compassionate bereavement leave allows up to 5 consecutive paid days off.")
+        ]
+    },
+    {
+        "title": "Remote Work Guidelines 2026",
+        "category": "Remote Work",
+        "chunks": [
+            ("Eligibility and Scheduling", 1, "AttendAI Remote Work Policy Document 2026.\nEmployees may request up to two remote days per week with manager pre-approval. Remote work requests must be logged through the scheduling module at least 48 hours in advance. Eligibility requires completion of probation and maintaining satisfactory punctuality scores."),
+            ("Core Working Hours and Daily Standups", 2, "Core working hours for remote staff are 10:00 AM to 4:00 PM EST.\nDaily standup attendance is mandatory regardless of work location. Employees must remain reachable via Slack and AttendAI communications during core hours, and connect strictly through enterprise VPN security protocols.")
+        ]
+    },
+    {
+        "title": "Workplace Code of Conduct",
+        "category": "Compliance",
+        "chunks": [
+            ("Safe and Respectful Workplace", 1, "AttendAI Code of Conduct and Anti-Harassment\nAttendAI is committed to providing a safe, inclusive, and respectful work environment for all personnel. Workplace bullying, harassment, and discrimination of any kind based on protected characteristics are strictly prohibited and subject to immediate disciplinary termination.\nReports can be filed anonymously with the HR Compliance Office via hr-compliance@attendai.com."),
+            ("Information Security and Data Governance", 1, "Personnel must safeguard confidential corporate intelligence, customer records, and biometric telemetry in accordance with SOC2 Type II, ISO 27001, and GDPR standards. Company-issued workstations must remain encrypted with full-disk BitLocker/FileVault security and MFA enabled on all systems.")
         ]
     }
 ]
@@ -386,30 +402,9 @@ async def seed_database_if_empty(db: AsyncSession) -> bool:
                     ))
                     anomaly_count += 1
 
-    # 9. HR Policies
-    for p in SAMPLE_POLICIES:
-        pol_id = str(uuid.uuid4())
-        policy = Policy(
-            id=pol_id,
-            organization_id=org.id,
-            title=p["title"],
-            category=p["category"],
-            file_size=10240,
-            status="active"
-        )
-        db.add(policy)
-        await db.flush()
-
-        for sec, page, content in p["chunks"]:
-            db.add(PolicyChunk(
-                id=str(uuid.uuid4()),
-                policy_id=pol_id,
-                title=p["title"],
-                section=sec,
-                page_number=page,
-                content=content,
-                token_count=len(content.split())
-            ))
+    # 9. HR Policies (All 4 Corporate Policy Documents with PDFs/DOCX and Structured Chunks)
+    from app.core.policy_generator import seed_policies_if_needed
+    await seed_policies_if_needed(db, org.id)
 
     # 10. Sample Leave Records
     for i in range(15):
