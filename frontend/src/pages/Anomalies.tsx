@@ -234,19 +234,19 @@ export const Anomalies: React.FC = () => {
     : 0;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 w-full min-w-0 max-w-full">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border">
-        <div>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border min-w-0">
+        <div className="min-w-0 flex-1">
           <h1 className="text-xl font-bold text-dark tracking-tight">Workforce Anomaly Detection & Investigation</h1>
-          <p className="text-xs text-secondary mt-0.5">
+          <p className="text-xs text-secondary mt-0.5 break-words">
             Hybrid intelligence engine combining deterministic rules, Scikit-learn Isolation Forest, and automated prescriptive recommendations.
           </p>
         </div>
         <button
           onClick={handleRunDetection}
           disabled={detecting}
-          className="px-3.5 py-1.5 bg-primary text-white rounded-lg text-xs font-semibold hover:bg-primary-hover flex items-center gap-1.5 shadow-sm transition-colors disabled:opacity-50"
+          className="px-3.5 py-1.5 bg-primary text-white rounded-lg text-xs font-semibold hover:bg-primary-hover flex items-center justify-center gap-1.5 shadow-sm transition-colors disabled:opacity-50 flex-shrink-0 self-start sm:self-auto"
         >
           {detecting ? (
             <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
@@ -258,9 +258,9 @@ export const Anomalies: React.FC = () => {
       </div>
 
       {/* Ethics & Fairness Notice */}
-      <div className="p-3.5 rounded-xl bg-blue-50/70 border border-blue-200/80 text-blue-900 text-xs flex items-start gap-2.5">
+      <div className="p-3.5 rounded-xl bg-blue-50/70 border border-blue-200/80 text-blue-900 text-xs flex items-start gap-2.5 min-w-0">
         <Info className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" />
-        <div>
+        <div className="min-w-0 flex-1">
           <span className="font-semibold">Fairness & Compliance Notice:</span>
           <span className="text-blue-800 ml-1">
             Anomalies flagged by AttendAI are statistical investigation indicators, never automated disciplinary actions
@@ -270,66 +270,66 @@ export const Anomalies: React.FC = () => {
       </div>
 
       {/* KPI Cards Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-card border border-border rounded-xl p-4 shadow-card">
-          <span className="text-[11px] font-semibold text-secondary uppercase tracking-wider block mb-1">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 min-w-0">
+        <div className="bg-card border border-border rounded-xl p-3 sm:p-4 shadow-card min-w-0">
+          <span className="text-[10px] sm:text-[11px] font-semibold text-secondary uppercase tracking-wider block mb-1 truncate">
             Total Anomalies
           </span>
-          <span className="text-2xl font-bold text-dark">{totalCount}</span>
-          <span className="text-[10px] text-secondary block mt-1">Past 30-day window</span>
+          <span className="text-xl sm:text-2xl font-bold text-dark">{totalCount}</span>
+          <span className="text-[10px] text-secondary block mt-1 truncate">Past 30-day window</span>
         </div>
-        <div className="bg-card border border-border rounded-xl p-4 shadow-card">
-          <span className="text-[11px] font-semibold text-danger uppercase tracking-wider block mb-1">
+        <div className="bg-card border border-border rounded-xl p-3 sm:p-4 shadow-card min-w-0">
+          <span className="text-[10px] sm:text-[11px] font-semibold text-danger uppercase tracking-wider block mb-1 truncate">
             Critical Alerts
           </span>
-          <span className="text-2xl font-bold text-danger">{criticalCount}</span>
-          <span className="text-[10px] text-danger/80 block mt-1">Requires supervisor check</span>
+          <span className="text-xl sm:text-2xl font-bold text-danger">{criticalCount}</span>
+          <span className="text-[10px] text-danger/80 block mt-1 truncate">Requires supervisor check</span>
         </div>
-        <div className="bg-card border border-border rounded-xl p-4 shadow-card">
-          <span className="text-[11px] font-semibold text-warning uppercase tracking-wider block mb-1">
+        <div className="bg-card border border-border rounded-xl p-3 sm:p-4 shadow-card min-w-0">
+          <span className="text-[10px] sm:text-[11px] font-semibold text-warning uppercase tracking-wider block mb-1 truncate">
             Pending Review
           </span>
-          <span className="text-2xl font-bold text-warning">{pendingCount}</span>
-          <span className="text-[10px] text-warning/80 block mt-1">Open triage queue</span>
+          <span className="text-xl sm:text-2xl font-bold text-warning">{pendingCount}</span>
+          <span className="text-[10px] text-warning/80 block mt-1 truncate">Open triage queue</span>
         </div>
-        <div className="bg-card border border-border rounded-xl p-4 shadow-card">
-          <span className="text-[11px] font-semibold text-success uppercase tracking-wider block mb-1">
+        <div className="bg-card border border-border rounded-xl p-3 sm:p-4 shadow-card min-w-0">
+          <span className="text-[10px] sm:text-[11px] font-semibold text-success uppercase tracking-wider block mb-1 truncate">
             Audited / Resolved
           </span>
-          <span className="text-2xl font-bold text-success">{resolvedCount}</span>
-          <span className="text-[10px] text-success/80 block mt-1">With resolution notes</span>
+          <span className="text-xl sm:text-2xl font-bold text-success">{resolvedCount}</span>
+          <span className="text-[10px] text-success/80 block mt-1 truncate">With resolution notes</span>
         </div>
       </div>
 
       {/* AI RECOMMENDED ACTIONS & HIGH-PRIORITY TRIAGE SECTION */}
-      <div className="bg-gradient-to-br from-indigo-50/50 via-white to-purple-50/40 border border-indigo-100 rounded-2xl p-5 shadow-card space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-indigo-100/70">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center shadow-sm">
+      <div className="bg-gradient-to-br from-indigo-50/50 via-white to-purple-50/40 border border-indigo-100 rounded-2xl p-4 sm:p-5 shadow-card space-y-4 min-w-0 max-w-full">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pb-3 border-b border-indigo-100/70 min-w-0">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center shadow-sm flex-shrink-0">
               <Sparkles className="w-4 h-4" />
             </div>
-            <div>
-              <h2 className="text-sm font-bold text-dark flex items-center gap-2">
+            <div className="min-w-0">
+              <h2 className="text-sm font-bold text-dark flex items-center gap-2 flex-wrap">
                 <span>AI Recommended Actions & High-Priority Triage</span>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-100 text-indigo-700">
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-100 text-indigo-700 whitespace-nowrap">
                   Intelligent Engine
                 </span>
               </h2>
-              <p className="text-xs text-secondary">
+              <p className="text-xs text-secondary mt-0.5 break-words">
                 Automated root cause identification, scheduled variance checks, and practical corrective actions.
               </p>
             </div>
           </div>
 
           {/* Quick Metrics Badges */}
-          <div className="flex items-center gap-2">
-            <span className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-amber-50 text-amber-800 border border-amber-200/60">
+          <div className="flex flex-wrap items-center gap-2 flex-shrink-0">
+            <span className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-amber-50 text-amber-800 border border-amber-200/60 whitespace-nowrap">
               Pending Triage: <strong>{dashboardData?.pending_count ?? pendingCount}</strong>
             </span>
-            <span className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-rose-50 text-rose-800 border border-rose-200/60">
+            <span className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-rose-50 text-rose-800 border border-rose-200/60 whitespace-nowrap">
               High Priority: <strong>{dashboardData?.high_priority_count ?? criticalCount}</strong>
             </span>
-            <span className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-purple-50 text-purple-800 border border-purple-200/60">
+            <span className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-purple-50 text-purple-800 border border-purple-200/60 whitespace-nowrap">
               Repeated Patterns: <strong>{dashboardData?.repeated_patterns_count ?? 0}</strong>
             </span>
           </div>
@@ -346,20 +346,24 @@ export const Anomalies: React.FC = () => {
             No high-priority anomaly triage items pending. All recent workforce patterns align with operational baselines.
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5 sm:gap-4 min-w-0 max-w-full">
             {dashboardData.prioritized_anomalies.map((item: DashboardTriageItem) => (
               <div
                 key={item.anomaly_id}
-                className="bg-white border border-slate-200/90 rounded-xl p-4 shadow-sm hover:border-indigo-300 transition-all flex flex-col justify-between space-y-3"
+                className="bg-white border border-slate-200/90 rounded-xl p-3.5 sm:p-4 shadow-sm hover:border-indigo-300 transition-all flex flex-col justify-between space-y-3 min-w-0 max-w-full"
               >
-                <div className="space-y-2">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <span className="font-bold text-dark text-xs block">{item.employee_name}</span>
-                      <span className="text-[10px] text-secondary font-mono">{item.employee_code} &bull; {item.department_name}</span>
+                <div className="space-y-2.5 min-w-0">
+                  <div className="flex items-start justify-between gap-2 min-w-0">
+                    <div className="min-w-0 flex-1">
+                      <span className="font-bold text-dark text-xs block truncate" title={item.employee_name}>
+                        {item.employee_name}
+                      </span>
+                      <span className="text-[10px] text-secondary font-mono block truncate" title={`${item.employee_code} • ${item.department_name}`}>
+                        {item.employee_code} &bull; {item.department_name}
+                      </span>
                     </div>
                     <span
-                      className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase border ${
+                      className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase border flex-shrink-0 ${
                         item.severity === 'critical'
                           ? 'bg-rose-50 text-danger border-rose-200'
                           : item.severity === 'high'
@@ -371,23 +375,25 @@ export const Anomalies: React.FC = () => {
                     </span>
                   </div>
 
-                  <div className="text-[11px] font-medium text-dark flex items-center gap-1.5 capitalize text-slate-700">
-                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
-                    <span>{item.anomaly_type.replace(/_/g, ' ')}</span>
-                    <span className="text-secondary text-[10px]">({item.detection_date})</span>
+                  <div className="text-[11px] font-medium text-dark flex items-center gap-1.5 capitalize text-slate-700 min-w-0">
+                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 flex-shrink-0"></span>
+                    <span className="truncate">{item.anomaly_type.replace(/_/g, ' ')}</span>
+                    <span className="text-secondary text-[10px] flex-shrink-0">({item.detection_date})</span>
                   </div>
 
                   {item.primary_recommendation && (
-                    <div className="p-2.5 rounded-lg bg-indigo-50/60 border border-indigo-100 text-xs space-y-1">
-                      <div className="font-semibold text-indigo-950 text-[11px] flex items-center gap-1">
+                    <div className="p-2.5 rounded-lg bg-indigo-50/60 border border-indigo-100 text-xs space-y-1 min-w-0">
+                      <div className="font-semibold text-indigo-950 text-[11px] flex items-center gap-1 min-w-0">
                         <CheckCircle2 className="w-3 h-3 text-indigo-600 flex-shrink-0" />
-                        <span>{item.primary_recommendation.title}</span>
+                        <span className="truncate" title={item.primary_recommendation.title}>
+                          {item.primary_recommendation.title}
+                        </span>
                       </div>
-                      <p className="text-slate-600 text-[11px] leading-tight">
+                      <p className="text-slate-600 text-[11px] leading-relaxed break-words">
                         {item.primary_recommendation.action}
                       </p>
                       <div className="pt-1 flex items-center justify-between text-[10px] text-indigo-700 font-medium">
-                        <span>Auth: {item.primary_recommendation.required_authorization}</span>
+                        <span className="truncate">Auth: {item.primary_recommendation.required_authorization}</span>
                       </div>
                     </div>
                   )}
@@ -395,10 +401,10 @@ export const Anomalies: React.FC = () => {
 
                 <button
                   onClick={() => openInvestigationModal(item.anomaly_id)}
-                  className="w-full mt-2 py-1.5 px-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm transition-colors"
+                  className="w-full mt-2 py-1.5 px-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm transition-colors flex-shrink-0"
                 >
-                  <span>Investigate & Recommend Fix</span>
-                  <ChevronRight className="w-3.5 h-3.5" />
+                  <span className="truncate">Investigate & Recommend Fix</span>
+                  <ChevronRight className="w-3.5 h-3.5 flex-shrink-0" />
                 </button>
               </div>
             ))}
@@ -407,9 +413,9 @@ export const Anomalies: React.FC = () => {
       </div>
 
       {/* Filter Bar */}
-      <div className="bg-card border border-border rounded-xl p-4 shadow-card flex flex-wrap items-center gap-3 justify-between">
-        <div className="flex items-center gap-3">
-          <Filter className="w-3.5 h-3.5 text-secondary" />
+      <div className="bg-card border border-border rounded-xl p-3 sm:p-4 shadow-card flex flex-wrap items-center gap-3 justify-between min-w-0 max-w-full">
+        <div className="flex flex-wrap items-center gap-3 min-w-0">
+          <Filter className="w-3.5 h-3.5 text-secondary flex-shrink-0" />
           <select
             value={severityFilter}
             onChange={(e) => setSeverityFilter(e.target.value)}
@@ -439,21 +445,21 @@ export const Anomalies: React.FC = () => {
       </div>
 
       {/* Anomalies Table */}
-      <div className="bg-card border border-border rounded-xl shadow-card overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
+      <div className="bg-card border border-border rounded-xl shadow-card overflow-hidden w-full min-w-0 max-w-full">
+        <div className="overflow-x-auto w-full max-w-full overscroll-x-contain">
+          <table className="w-full text-left text-xs min-w-[900px] border-collapse">
             <thead>
               <tr className="border-b border-border bg-slate-50/75 text-secondary uppercase tracking-wider text-[10px]">
-                <th className="py-3 px-4">Date</th>
-                <th className="py-3 px-4">Employee</th>
-                <th className="py-3 px-4">Anomaly Type</th>
-                <th className="py-3 px-4">Severity</th>
-                <th className="py-3 px-4">Method</th>
-                <th className="py-3 px-4">Score</th>
-                <th className="py-3 px-4">Explanation</th>
-                <th className="py-3 px-4">Suggested Action</th>
-                <th className="py-3 px-4">Status</th>
-                <th className="py-3 px-4 text-right">Action</th>
+                <th className="py-3 px-4 whitespace-nowrap">Date</th>
+                <th className="py-3 px-4 whitespace-nowrap">Employee</th>
+                <th className="py-3 px-4 whitespace-nowrap">Anomaly Type</th>
+                <th className="py-3 px-4 whitespace-nowrap">Severity</th>
+                <th className="py-3 px-4 whitespace-nowrap">Method</th>
+                <th className="py-3 px-4 whitespace-nowrap">Score</th>
+                <th className="py-3 px-4 min-w-[180px] max-w-xs">Explanation</th>
+                <th className="py-3 px-4 min-w-[200px] max-w-xs">Suggested Action</th>
+                <th className="py-3 px-4 whitespace-nowrap">Status</th>
+                <th className="py-3 px-4 text-right whitespace-nowrap">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border font-medium">
@@ -472,15 +478,15 @@ export const Anomalies: React.FC = () => {
               ) : (
                 anomalies.map((anom) => (
                   <tr key={anom.id} className="hover:bg-slate-50/60 transition-colors">
-                    <td className="py-3 px-4 font-mono text-dark">{anom.date}</td>
-                    <td className="py-3 px-4">
+                    <td className="py-3 px-4 font-mono text-dark whitespace-nowrap">{anom.date}</td>
+                    <td className="py-3 px-4 whitespace-nowrap">
                       <span className="font-semibold text-dark block">{anom.employee_name}</span>
                       <span className="text-[10px] text-secondary font-mono">{anom.employee_code}</span>
                     </td>
-                    <td className="py-3 px-4 font-semibold text-dark capitalize">
+                    <td className="py-3 px-4 font-semibold text-dark capitalize whitespace-nowrap">
                       {anom.anomaly_type.replace(/_/g, ' ')}
                     </td>
-                    <td className="py-3 px-4">
+                    <td className="py-3 px-4 whitespace-nowrap">
                       <span
                         className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold uppercase border ${
                           anom.severity === 'critical'
@@ -493,35 +499,35 @@ export const Anomalies: React.FC = () => {
                         {anom.severity}
                       </span>
                     </td>
-                    <td className="py-3 px-4">
+                    <td className="py-3 px-4 whitespace-nowrap">
                       <span className="flex items-center gap-1 text-[11px] text-secondary capitalize">
                         {anom.detection_method === 'isolation_forest' ? (
                           <>
-                            <BrainCircuit className="w-3.5 h-3.5 text-purple-600" />
+                            <BrainCircuit className="w-3.5 h-3.5 text-purple-600 flex-shrink-0" />
                             <span>Isolation Forest</span>
                           </>
                         ) : (
                           <>
-                            <ShieldAlert className="w-3.5 h-3.5 text-blue-600" />
+                            <ShieldAlert className="w-3.5 h-3.5 text-blue-600 flex-shrink-0" />
                             <span>Rule-Based</span>
                           </>
                         )}
                       </span>
                     </td>
-                    <td className="py-3 px-4 font-mono text-dark">{anom.score}</td>
-                    <td className="py-3 px-4 text-secondary max-w-sm truncate" title={anom.explanation}>
-                      {anom.explanation}
+                    <td className="py-3 px-4 font-mono text-dark whitespace-nowrap">{anom.score}</td>
+                    <td className="py-3 px-4 text-secondary max-w-xs truncate" title={anom.explanation}>
+                      <span className="block truncate">{anom.explanation}</span>
                     </td>
                     <td className="py-3 px-4 max-w-xs">
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1.5 min-w-0">
                         <button
                           type="button"
                           onClick={() => openInvestigationModal(anom.id)}
-                          className="group inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium bg-indigo-50/80 hover:bg-indigo-100 text-indigo-700 hover:text-indigo-900 border border-indigo-200/80 transition-all text-left shadow-2xs cursor-pointer max-w-full"
+                          className="group inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium bg-indigo-50/80 hover:bg-indigo-100 text-indigo-700 hover:text-indigo-900 border border-indigo-200/80 transition-all text-left shadow-2xs cursor-pointer max-w-full min-w-0"
                           title={anom.suggested_action ? `${anom.suggested_action} (Click to View Suggestion)` : 'No recommendation available – manual review required'}
                         >
                           <Sparkles className="w-3.5 h-3.5 text-indigo-600 flex-shrink-0 group-hover:scale-110 transition-transform" />
-                          <span className="truncate">
+                          <span className="truncate flex-1 min-w-0">
                             {anom.suggested_action || 'No recommendation available – manual review required'}
                           </span>
                           <span className="text-[10px] text-indigo-600 font-semibold uppercase flex-shrink-0 ml-auto pl-1 group-hover:underline">
@@ -530,7 +536,7 @@ export const Anomalies: React.FC = () => {
                         </button>
                       </div>
                     </td>
-                    <td className="py-3 px-4">
+                    <td className="py-3 px-4 whitespace-nowrap">
                       <span
                         className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold capitalize border ${
                           anom.status === 'resolved'
@@ -547,7 +553,7 @@ export const Anomalies: React.FC = () => {
                         {anom.status.replace(/_/g, ' ')}
                       </span>
                     </td>
-                    <td className="py-3 px-4 text-right">
+                    <td className="py-3 px-4 text-right whitespace-nowrap">
                       <button
                         onClick={() => openInvestigationModal(anom.id)}
                         className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-[11px] font-medium text-indigo-700 rounded-md transition-colors"
