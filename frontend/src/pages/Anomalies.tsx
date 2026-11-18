@@ -442,24 +442,28 @@ export const Anomalies: React.FC = () => {
             <option value="under_review">Under Review</option>
           </select>
         </div>
+
+        <div className="text-xs text-secondary font-medium flex items-center gap-2">
+          <span>Showing <strong className="text-dark font-semibold">{anomalies.length}</strong> anomaly records</span>
+        </div>
       </div>
 
       {/* Anomalies Table */}
       <div className="bg-card border border-border rounded-xl shadow-card overflow-hidden w-full min-w-0 max-w-full">
         <div className="overflow-x-auto w-full max-w-full overscroll-x-contain">
-          <table className="w-full text-left text-xs min-w-[900px] border-collapse">
+          <table className="w-full text-left text-xs min-w-[1100px] border-collapse table-auto">
             <thead>
               <tr className="border-b border-border bg-slate-50/75 text-secondary uppercase tracking-wider text-[10px]">
-                <th className="py-3 px-4 whitespace-nowrap">Date</th>
-                <th className="py-3 px-4 whitespace-nowrap">Employee</th>
-                <th className="py-3 px-4 whitespace-nowrap">Anomaly Type</th>
-                <th className="py-3 px-4 whitespace-nowrap">Severity</th>
-                <th className="py-3 px-4 whitespace-nowrap">Method</th>
-                <th className="py-3 px-4 whitespace-nowrap">Score</th>
-                <th className="py-3 px-4 min-w-[180px] max-w-xs">Explanation</th>
-                <th className="py-3 px-4 min-w-[200px] max-w-xs">Suggested Action</th>
-                <th className="py-3 px-4 whitespace-nowrap">Status</th>
-                <th className="py-3 px-4 text-right whitespace-nowrap">Action</th>
+                <th className="py-3 px-4 w-[95px] min-w-[95px] text-left font-semibold whitespace-nowrap">Date</th>
+                <th className="py-3 px-4 w-[150px] min-w-[135px] text-left font-semibold">Employee</th>
+                <th className="py-3 px-4 w-[140px] min-w-[125px] text-left font-semibold">Anomaly Type</th>
+                <th className="py-3 px-4 w-[90px] min-w-[85px] text-left font-semibold whitespace-nowrap">Severity</th>
+                <th className="py-3 px-4 w-[125px] min-w-[115px] text-left font-semibold whitespace-nowrap">Method</th>
+                <th className="py-3 px-4 w-[75px] min-w-[70px] text-left font-semibold whitespace-nowrap">Score</th>
+                <th className="py-3 px-4 min-w-[220px] max-w-[320px] text-left font-semibold">Explanation</th>
+                <th className="py-3 px-4 min-w-[260px] max-w-[360px] text-left font-semibold">Suggested Action</th>
+                <th className="py-3 px-4 w-[110px] min-w-[100px] text-left font-semibold whitespace-nowrap">Status</th>
+                <th className="py-3 px-4 w-[105px] min-w-[100px] text-right font-semibold whitespace-nowrap">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border font-medium">
@@ -478,15 +482,15 @@ export const Anomalies: React.FC = () => {
               ) : (
                 anomalies.map((anom) => (
                   <tr key={anom.id} className="hover:bg-slate-50/60 transition-colors">
-                    <td className="py-3 px-4 font-mono text-dark whitespace-nowrap">{anom.date}</td>
-                    <td className="py-3 px-4 whitespace-nowrap">
-                      <span className="font-semibold text-dark block">{anom.employee_name}</span>
-                      <span className="text-[10px] text-secondary font-mono">{anom.employee_code}</span>
+                    <td className="py-3.5 px-4 font-mono text-dark whitespace-nowrap align-top">{anom.date}</td>
+                    <td className="py-3.5 px-4 min-w-[135px] align-top">
+                      <span className="font-semibold text-dark block break-words leading-tight">{anom.employee_name}</span>
+                      <span className="text-[10px] text-secondary font-mono block mt-0.5">{anom.employee_code}</span>
                     </td>
-                    <td className="py-3 px-4 font-semibold text-dark capitalize whitespace-nowrap">
+                    <td className="py-3.5 px-4 font-semibold text-dark capitalize break-words leading-snug align-top">
                       {anom.anomaly_type.replace(/_/g, ' ')}
                     </td>
-                    <td className="py-3 px-4 whitespace-nowrap">
+                    <td className="py-3.5 px-4 whitespace-nowrap align-top">
                       <span
                         className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold uppercase border ${
                           anom.severity === 'critical'
@@ -499,7 +503,7 @@ export const Anomalies: React.FC = () => {
                         {anom.severity}
                       </span>
                     </td>
-                    <td className="py-3 px-4 whitespace-nowrap">
+                    <td className="py-3.5 px-4 whitespace-nowrap align-top">
                       <span className="flex items-center gap-1 text-[11px] text-secondary capitalize">
                         {anom.detection_method === 'isolation_forest' ? (
                           <>
@@ -514,29 +518,44 @@ export const Anomalies: React.FC = () => {
                         )}
                       </span>
                     </td>
-                    <td className="py-3 px-4 font-mono text-dark whitespace-nowrap">{anom.score}</td>
-                    <td className="py-3 px-4 text-secondary max-w-xs truncate" title={anom.explanation}>
-                      <span className="block truncate">{anom.explanation}</span>
+                    <td className="py-3.5 px-4 font-mono text-dark whitespace-nowrap align-top">{anom.score}</td>
+                    <td className="py-3.5 px-4 min-w-[220px] max-w-[320px] align-top">
+                      <p className="text-secondary text-xs leading-relaxed break-words" title={anom.explanation}>
+                        {anom.explanation}
+                      </p>
                     </td>
-                    <td className="py-3 px-4 max-w-xs">
-                      <div className="flex items-center gap-1.5 min-w-0">
+                    <td className="py-3.5 px-4 min-w-[260px] max-w-[360px] align-top">
+                      {anom.suggested_action ? (
                         <button
                           type="button"
                           onClick={() => openInvestigationModal(anom.id)}
-                          className="group inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium bg-indigo-50/80 hover:bg-indigo-100 text-indigo-700 hover:text-indigo-900 border border-indigo-200/80 transition-all text-left shadow-2xs cursor-pointer max-w-full min-w-0"
-                          title={anom.suggested_action ? `${anom.suggested_action} (Click to View Suggestion)` : 'No recommendation available – manual review required'}
+                          className="w-full text-left p-2.5 rounded-lg bg-indigo-50/70 hover:bg-indigo-100/90 border border-indigo-200/80 text-indigo-950 transition-all duration-150 group shadow-2xs hover:shadow-xs flex flex-col gap-1.5 cursor-pointer"
+                          title={`${anom.suggested_action} – Click to View Suggestion & Prescriptive Steps`}
                         >
-                          <Sparkles className="w-3.5 h-3.5 text-indigo-600 flex-shrink-0 group-hover:scale-110 transition-transform" />
-                          <span className="truncate flex-1 min-w-0">
-                            {anom.suggested_action || 'No recommendation available – manual review required'}
-                          </span>
-                          <span className="text-[10px] text-indigo-600 font-semibold uppercase flex-shrink-0 ml-auto pl-1 group-hover:underline">
-                            View
-                          </span>
+                          <div className="flex items-start gap-1.5 w-full min-w-0">
+                            <Sparkles className="w-3.5 h-3.5 text-indigo-600 flex-shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
+                            <span className="text-[11px] font-semibold text-indigo-950 leading-snug break-words flex-1 min-w-0">
+                              {anom.suggested_action}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between w-full pt-1 border-t border-indigo-100/70 text-[10px] text-indigo-600 font-semibold">
+                            <span className="flex items-center gap-1 group-hover:text-indigo-800">
+                              <span>View Suggestion</span>
+                              <ChevronRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+                            </span>
+                            <span className="text-[9px] uppercase px-1.5 py-0.5 bg-white/90 rounded border border-indigo-200/60 font-mono text-indigo-700">
+                              AI Fix
+                            </span>
+                          </div>
                         </button>
-                      </div>
+                      ) : (
+                        <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 text-secondary text-[11px] flex items-center gap-1.5">
+                          <Info className="w-3.5 h-3.5 flex-shrink-0 text-slate-400" />
+                          <span className="break-words">No recommendation available</span>
+                        </div>
+                      )}
                     </td>
-                    <td className="py-3 px-4 whitespace-nowrap">
+                    <td className="py-3.5 px-4 whitespace-nowrap align-top">
                       <span
                         className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold capitalize border ${
                           anom.status === 'resolved'
@@ -553,10 +572,10 @@ export const Anomalies: React.FC = () => {
                         {anom.status.replace(/_/g, ' ')}
                       </span>
                     </td>
-                    <td className="py-3 px-4 text-right whitespace-nowrap">
+                    <td className="py-3.5 px-4 text-right whitespace-nowrap align-top">
                       <button
                         onClick={() => openInvestigationModal(anom.id)}
-                        className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-[11px] font-medium text-indigo-700 rounded-md transition-colors"
+                        className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-[11px] font-semibold text-indigo-700 rounded-lg transition-colors whitespace-nowrap inline-flex items-center gap-1"
                       >
                         Investigate
                       </button>
@@ -648,8 +667,8 @@ export const Anomalies: React.FC = () => {
                           <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
                           <span>Anomaly Explanation & Detection Reason</span>
                         </span>
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-200/70 text-slate-700">
-                          Method: {investigationData.detection_method.replace(/_/g, ' ')}
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-200/70 text-slate-700 capitalize">
+                          Method: {(investigationData.detection_method || 'rule_based').replace(/_/g, ' ')}
                         </span>
                       </div>
                       <p className="text-slate-800 text-xs leading-relaxed bg-white border border-slate-200 rounded-lg p-3 font-medium">
@@ -796,123 +815,127 @@ export const Anomalies: React.FC = () => {
 
                   {/* SECTION 3: SUPPORTING EVIDENCE */}
                   <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
-                    <div>
-                      <span className="text-[10px] font-bold text-secondary uppercase tracking-wider block mb-2">
-                        Actual Attendance vs. Scheduled Baseline Comparison
-                      </span>
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                        <div className="bg-white border border-slate-200 rounded-lg p-2.5">
-                          <span className="text-[10px] text-secondary block">Worked Duration</span>
-                          <span className="font-bold text-dark text-xs block">
-                            {investigationData.actual_vs_expected.actual_worked_minutes ?? 0}m (
-                            {((investigationData.actual_vs_expected.actual_worked_minutes ?? 0) / 60).toFixed(1)}h)
-                          </span>
-                          <span className="text-[10px] text-secondary block mt-0.5">
-                            Expected: {investigationData.actual_vs_expected.expected_worked_minutes ?? 480}m
-                            {investigationData.actual_vs_expected.worked_hours_variance_minutes !== undefined && (
-                              <strong
-                                className={`ml-1 ${
-                                  investigationData.actual_vs_expected.worked_hours_variance_minutes > 0
-                                    ? 'text-amber-600'
-                                    : investigationData.actual_vs_expected.worked_hours_variance_minutes < 0
-                                    ? 'text-rose-600'
-                                    : 'text-slate-500'
-                                }`}
-                              >
-                                ({investigationData.actual_vs_expected.worked_hours_variance_minutes > 0 ? '+' : ''}
-                                {investigationData.actual_vs_expected.worked_hours_variance_minutes}m)
-                              </strong>
-                            )}
-                          </span>
+                    {investigationData.actual_vs_expected && (
+                      <div>
+                        <span className="text-[10px] font-bold text-secondary uppercase tracking-wider block mb-2">
+                          Actual Attendance vs. Scheduled Baseline Comparison
+                        </span>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                          <div className="bg-white border border-slate-200 rounded-lg p-2.5">
+                            <span className="text-[10px] text-secondary block">Worked Duration</span>
+                            <span className="font-bold text-dark text-xs block">
+                              {investigationData.actual_vs_expected.actual_worked_minutes ?? 0}m (
+                              {((investigationData.actual_vs_expected.actual_worked_minutes ?? 0) / 60).toFixed(1)}h)
+                            </span>
+                            <span className="text-[10px] text-secondary block mt-0.5">
+                              Expected: {investigationData.actual_vs_expected.expected_worked_minutes ?? 480}m
+                              {investigationData.actual_vs_expected.worked_hours_variance_minutes !== undefined && (
+                                <strong
+                                  className={`ml-1 ${
+                                    investigationData.actual_vs_expected.worked_hours_variance_minutes > 0
+                                      ? 'text-amber-600'
+                                      : investigationData.actual_vs_expected.worked_hours_variance_minutes < 0
+                                      ? 'text-rose-600'
+                                      : 'text-slate-500'
+                                  }`}
+                                >
+                                  ({investigationData.actual_vs_expected.worked_hours_variance_minutes > 0 ? '+' : ''}
+                                  {investigationData.actual_vs_expected.worked_hours_variance_minutes}m)
+                                </strong>
+                              )}
+                            </span>
+                          </div>
+
+                          <div className="bg-white border border-slate-200 rounded-lg p-2.5">
+                            <span className="text-[10px] text-secondary block">Overtime Logged</span>
+                            <span className="font-bold text-dark text-xs block">
+                              {investigationData.actual_vs_expected.actual_overtime_minutes ?? 0}m (
+                              {((investigationData.actual_vs_expected.actual_overtime_minutes ?? 0) / 60).toFixed(1)}h)
+                            </span>
+                            <span className="text-[10px] text-secondary block mt-0.5">
+                              Expected: {investigationData.actual_vs_expected.expected_overtime_minutes ?? 0}m
+                            </span>
+                          </div>
+
+                          <div className="bg-white border border-slate-200 rounded-lg p-2.5">
+                            <span className="text-[10px] text-secondary block">Late Arrival Minutes</span>
+                            <span className="font-bold text-dark text-xs block">
+                              {investigationData.actual_vs_expected.actual_late_minutes ?? 0}m
+                            </span>
+                            <span className="text-[10px] text-secondary block mt-0.5">
+                              Grace: {investigationData.actual_vs_expected.shift_grace_period_minutes ?? 15}m
+                            </span>
+                          </div>
+
+                          <div className="bg-white border border-slate-200 rounded-lg p-2.5">
+                            <span className="text-[10px] text-secondary block">Break Duration</span>
+                            <span className="font-bold text-dark text-xs block">
+                              {investigationData.actual_vs_expected.actual_break_minutes ?? 0}m
+                            </span>
+                            <span className="text-[10px] text-secondary block mt-0.5">
+                              Max Allowed: {investigationData.actual_vs_expected.expected_break_minutes ?? 60}m
+                            </span>
+                          </div>
                         </div>
 
-                        <div className="bg-white border border-slate-200 rounded-lg p-2.5">
-                          <span className="text-[10px] text-secondary block">Overtime Logged</span>
-                          <span className="font-bold text-dark text-xs block">
-                            {investigationData.actual_vs_expected.actual_overtime_minutes ?? 0}m (
-                            {((investigationData.actual_vs_expected.actual_overtime_minutes ?? 0) / 60).toFixed(1)}h)
-                          </span>
-                          <span className="text-[10px] text-secondary block mt-0.5">
-                            Expected: {investigationData.actual_vs_expected.expected_overtime_minutes ?? 0}m
-                          </span>
-                        </div>
-
-                        <div className="bg-white border border-slate-200 rounded-lg p-2.5">
-                          <span className="text-[10px] text-secondary block">Late Arrival Minutes</span>
-                          <span className="font-bold text-dark text-xs block">
-                            {investigationData.actual_vs_expected.actual_late_minutes ?? 0}m
-                          </span>
-                          <span className="text-[10px] text-secondary block mt-0.5">
-                            Grace: {investigationData.actual_vs_expected.shift_grace_period_minutes ?? 15}m
-                          </span>
-                        </div>
-
-                        <div className="bg-white border border-slate-200 rounded-lg p-2.5">
-                          <span className="text-[10px] text-secondary block">Break Duration</span>
-                          <span className="font-bold text-dark text-xs block">
-                            {investigationData.actual_vs_expected.actual_break_minutes ?? 0}m
-                          </span>
-                          <span className="text-[10px] text-secondary block mt-0.5">
-                            Max Allowed: {investigationData.actual_vs_expected.expected_break_minutes ?? 60}m
-                          </span>
+                        {/* Timestamps Row */}
+                        <div className="mt-2.5 flex flex-wrap items-center gap-4 text-[11px] text-slate-600 bg-white border border-slate-200 rounded-lg px-3 py-1.5 font-mono">
+                          <div>
+                            <span className="text-secondary mr-1">Actual Clock In:</span>
+                            <strong>{investigationData.actual_vs_expected.clock_in_actual || 'None Recorded'}</strong>
+                          </div>
+                          <div>
+                            <span className="text-secondary mr-1">Actual Clock Out:</span>
+                            <strong>{investigationData.actual_vs_expected.clock_out_actual || 'None Recorded'}</strong>
+                          </div>
+                          <div>
+                            <span className="text-secondary mr-1">Shift Schedule:</span>
+                            <strong>
+                              {investigationData.actual_vs_expected.scheduled_start || '--:--'} - {investigationData.actual_vs_expected.scheduled_end || '--:--'}
+                            </strong>
+                          </div>
                         </div>
                       </div>
-
-                      {/* Timestamps Row */}
-                      <div className="mt-2.5 flex flex-wrap items-center gap-4 text-[11px] text-slate-600 bg-white border border-slate-200 rounded-lg px-3 py-1.5 font-mono">
-                        <div>
-                          <span className="text-secondary mr-1">Actual Clock In:</span>
-                          <strong>{investigationData.actual_vs_expected.clock_in_actual || 'None Recorded'}</strong>
-                        </div>
-                        <div>
-                          <span className="text-secondary mr-1">Actual Clock Out:</span>
-                          <strong>{investigationData.actual_vs_expected.clock_out_actual || 'None Recorded'}</strong>
-                        </div>
-                        <div>
-                          <span className="text-secondary mr-1">Shift Schedule:</span>
-                          <strong>
-                            {investigationData.actual_vs_expected.scheduled_start || '--:--'} - {investigationData.actual_vs_expected.scheduled_end || '--:--'}
-                          </strong>
-                        </div>
-                      </div>
-                    </div>
+                    )}
 
                     {/* Historical Context */}
-                    <div className="space-y-2 pt-2 border-t border-slate-200">
-                      <span className="text-[10px] font-bold text-secondary uppercase tracking-wider block">
-                        Historical Context (30-Day Verified Attendance Pattern)
-                      </span>
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                        <div className="bg-white border border-slate-200 rounded-lg p-2.5">
-                          <span className="text-[10px] text-secondary block">Avg Daily Hours</span>
-                          <span className="font-bold text-dark text-xs block">
-                            {investigationData.historical_context.avg_daily_worked_hours}h / day
-                          </span>
-                          <span className="text-[10px] text-secondary block mt-0.5">30-day baseline</span>
-                        </div>
-                        <div className="bg-white border border-slate-200 rounded-lg p-2.5">
-                          <span className="text-[10px] text-secondary block">Recent Overtime Days</span>
-                          <span className="font-bold text-dark text-xs block">
-                            {investigationData.historical_context.overtime_frequency_count} days
-                          </span>
-                          <span className="text-[10px] text-secondary block mt-0.5">In past 30 days</span>
-                        </div>
-                        <div className="bg-white border border-slate-200 rounded-lg p-2.5">
-                          <span className="text-[10px] text-secondary block">Late Arrival Days</span>
-                          <span className="font-bold text-dark text-xs block">
-                            {investigationData.historical_context.late_arrival_frequency_count} days
-                          </span>
-                          <span className="text-[10px] text-secondary block mt-0.5">In past 30 days</span>
-                        </div>
-                        <div className="bg-white border border-slate-200 rounded-lg p-2.5">
-                          <span className="text-[10px] text-secondary block">Prior Similar Flags</span>
-                          <span className="font-bold text-dark text-xs block">
-                            {investigationData.historical_context.previous_similar_anomalies_count} flags
-                          </span>
-                          <span className="text-[10px] text-secondary block mt-0.5">Repeat occurrence check</span>
+                    {investigationData.historical_context && (
+                      <div className="space-y-2 pt-2 border-t border-slate-200">
+                        <span className="text-[10px] font-bold text-secondary uppercase tracking-wider block">
+                          Historical Context (30-Day Verified Attendance Pattern)
+                        </span>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                          <div className="bg-white border border-slate-200 rounded-lg p-2.5">
+                            <span className="text-[10px] text-secondary block">Avg Daily Hours</span>
+                            <span className="font-bold text-dark text-xs block">
+                              {investigationData.historical_context.avg_daily_worked_hours}h / day
+                            </span>
+                            <span className="text-[10px] text-secondary block mt-0.5">30-day baseline</span>
+                          </div>
+                          <div className="bg-white border border-slate-200 rounded-lg p-2.5">
+                            <span className="text-[10px] text-secondary block">Recent Overtime Days</span>
+                            <span className="font-bold text-dark text-xs block">
+                              {investigationData.historical_context.overtime_frequency_count} days
+                            </span>
+                            <span className="text-[10px] text-secondary block mt-0.5">In past 30 days</span>
+                          </div>
+                          <div className="bg-white border border-slate-200 rounded-lg p-2.5">
+                            <span className="text-[10px] text-secondary block">Late Arrival Days</span>
+                            <span className="font-bold text-dark text-xs block">
+                              {investigationData.historical_context.late_arrival_frequency_count} days
+                            </span>
+                            <span className="text-[10px] text-secondary block mt-0.5">In past 30 days</span>
+                          </div>
+                          <div className="bg-white border border-slate-200 rounded-lg p-2.5">
+                            <span className="text-[10px] text-secondary block">Prior Similar Flags</span>
+                            <span className="font-bold text-dark text-xs block">
+                              {investigationData.historical_context.previous_similar_anomalies_count} flags
+                            </span>
+                            <span className="text-[10px] text-secondary block mt-0.5">Repeat occurrence check</span>
+                          </div>
                         </div>
                       </div>
-                    </div>
+                    )}
 
                     {/* Identified Factors */}
                     {investigationData.possible_causes && investigationData.possible_causes.length > 0 && (
