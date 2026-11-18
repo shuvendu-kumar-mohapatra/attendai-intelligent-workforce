@@ -27,7 +27,11 @@ Watch the complete AttendAI walkthrough demonstrating employee clocking, supervi
   <a href="https://drive.google.com/file/d/1GvfwJ409LN0w3umGJxHjPOq6tWQ5daqf/view?usp=sharing" target="_blank" rel="noopener noreferrer" title="Click to watch AttendAI Product Demonstration (Google Drive)">
     <img src="demo/demo-thumbnail.png" alt="AttendAI Product Demonstration Video" width="820" style="max-width: 100%; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.18);" />
   </a>
-  <p><em>▶️ <b>Click the card above</b> to launch the full 1080p video walkthrough on <a href="https://drive.google.com/file/d/1GvfwJ409LN0w3umGJxHjPOq6tWQ5daqf/view?usp=sharing" target="_blank" rel="noopener noreferrer"><b>Google Drive</b></a> (8 min &bull; Full HD)</em></p>
+  <p>
+    <em>▶️ <b>Click the card above</b> to stream on <a href="https://drive.google.com/file/d/1GvfwJ409LN0w3umGJxHjPOq6tWQ5daqf/view?usp=sharing" target="_blank" rel="noopener noreferrer"><b>Google Drive</b></a> (8 min &bull; Full HD)</em>
+    <br />
+    📁 <b>Repository File</b>: <a href="demo/demo.mp4"><b>demo/demo.mp4</b></a> <em>(direct repository source &amp; download)</em>
+  </p>
 </div>
 
 ---
