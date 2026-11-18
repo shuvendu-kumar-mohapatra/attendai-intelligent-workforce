@@ -24,10 +24,10 @@ AttendAI is a production-grade, AI-powered workforce time-and-attendance managem
 Watch the complete AttendAI walkthrough demonstrating employee clocking, supervisor anomaly triage, grounded AI conversational assistant, policy indexing reader, and custom report builder:
 
 <div align="center">
-  <a href="https://drive.google.com/file/d/1GvfwJ409LN0w3umGJxHjPOq6tWQ5daqf/view?usp=sharing" target="_blank" rel="noopener noreferrer" title="AttendAI Product Demonstration Video">
+  <a href="https://drive.google.com/file/d/1SdGo7-WEPQqEtfrrrEji8MuGDp20yDyM/view?usp=sharing" target="_blank" rel="noopener noreferrer" title="AttendAI Product Demonstration Video">
     <img src="demo/demo-thumbnail.png" alt="AttendAI Product Demonstration Video" width="820" style="max-width: 100%; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.18);" />
   </a>
-  <p><em>📁 Repository Video File: <a href="demo/demo.mp4"><code>demo/demo.mp4</code></a> (8 min &bull; Full HD 1080p)</em></p>
+  <p><em>📁 Repository Video File: <a href="demo/demo.mp4"><code>demo/demo.mp4</code></a> (10 min &bull; Full HD 1080p)</em></p>
 </div>
 
 ---
@@ -283,7 +283,7 @@ For complete reporting documentation, see [Reporting & Exports Documentation](do
 
 ## 12. Visual Walkthrough & Screenshots
 
-> 💡 **Watch the Live Walkthrough**: A complete video demonstration of all interfaces and features is available on [Google Drive](https://drive.google.com/file/d/1GvfwJ409LN0w3umGJxHjPOq6tWQ5daqf/view?usp=sharing) (see [Platform Demonstration Video](#-product-demonstration-video)).
+> 💡 **Watch the Live Walkthrough**: A complete video demonstration of all interfaces and features is available on [Google Drive](https://drive.google.com/file/d/1SdGo7-WEPQqEtfrrrEji8MuGDp20yDyM/view?usp=sharing) (see [Platform Demonstration Video](#-product-demonstration-video)).
 
 ```
 +---------------------------------------------------------------------------------------+
