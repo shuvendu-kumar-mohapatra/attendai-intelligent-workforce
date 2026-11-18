@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field
 
@@ -81,6 +81,9 @@ class AnomalyInvestigationResponse(BaseModel):
     available_resolutions: List[Dict[str, str]]
     current_status: str
     current_resolution_notes: Optional[str] = None
+    reviewed_by: Optional[str] = None
+    reviewed_by_name: Optional[str] = None
+    reviewed_at: Optional[datetime] = None
     ai_recommended_action: Optional[AIRecommendedActionDetail] = None
 
 class DashboardRecommendationsResponse(BaseModel):

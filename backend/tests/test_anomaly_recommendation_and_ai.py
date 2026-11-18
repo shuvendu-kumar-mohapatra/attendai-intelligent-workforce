@@ -459,10 +459,18 @@ async def test_investigation_returns_ai_recommended_action_and_caches():
     from app.core.database import AsyncSessionLocal
 
     async with AsyncSessionLocal() as db:
-        stmt = select(AttendanceAnomaly).limit(1)
+        stmt = select(AttendanceAnomaly).where(AttendanceAnomaly.status == "pending").limit(1)
         anom = (await db.execute(stmt)).scalars().first()
         if not anom:
-            pytest.skip("No anomalies present in database to test investigation")
+            # Fallback to any anomaly and reset status to pending for testing
+            stmt_any = select(AttendanceAnomaly).limit(1)
+            anom = (await db.execute(stmt_any)).scalars().first()
+            if anom:
+                anom.status = "pending"
+                await db.commit()
+                await db.refresh(anom)
+            else:
+                pytest.skip("No anomalies present in database to test investigation")
 
         # Call investigation
         res = await AnomalyRecommendationService.investigate_anomaly(

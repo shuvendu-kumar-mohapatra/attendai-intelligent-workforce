@@ -193,6 +193,11 @@ export interface AnomalyInvestigationData {
   score: number;
   detection_method: string;
   status: string;
+  current_status?: string;
+  current_resolution_notes?: string;
+  reviewed_by?: string;
+  reviewed_by_name?: string;
+  reviewed_at?: string;
   why_flagged_explanation: string;
   explanation?: string;
   confidence_score: number;

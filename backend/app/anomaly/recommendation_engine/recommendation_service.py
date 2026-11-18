@@ -413,18 +413,29 @@ class AnomalyRecommendationService:
 
         suggested = ActionRegistry.get_short_recommendation_summary(anomaly.anomaly_type)
 
-        # 6. Synthesize AI-recommended action (Rule-based baseline + NVIDIA NIM / Groq fallback)
-        ai_rec_action = await cls.generate_ai_recommended_action(
-            anomaly_id=anomaly.id,
-            anomaly_type=anomaly.anomaly_type,
-            detection_date=str(anomaly.date),
-            severity=anomaly.severity,
-            score=round(anomaly.score, 2),
-            detection_method=anomaly.detection_method,
-            comparison=comparison,
-            history=history,
-            policy_citation=policy_citation
-        )
+        # Lookup reviewer details if previously reviewed
+        reviewer_name = None
+        if anomaly.reviewed_by:
+            from app.models.models import User
+            rev_user = (await db.execute(select(User).where(User.id == anomaly.reviewed_by))).scalars().first()
+            if rev_user:
+                reviewer_name = f"{rev_user.first_name} {rev_user.last_name}" if getattr(rev_user, "first_name", None) else (getattr(rev_user, "username", None) or getattr(rev_user, "email", "HR/Admin"))
+
+        # 6. Synthesize AI-recommended action only for open/unresolved anomalies
+        is_already_closed = anomaly.status in ["resolved", "dismissed"]
+        ai_rec_action = None
+        if not is_already_closed:
+            ai_rec_action = await cls.generate_ai_recommended_action(
+                anomaly_id=anomaly.id,
+                anomaly_type=anomaly.anomaly_type,
+                detection_date=str(anomaly.date),
+                severity=anomaly.severity,
+                score=round(anomaly.score, 2),
+                detection_method=anomaly.detection_method,
+                comparison=comparison,
+                history=history,
+                policy_citation=policy_citation
+            )
 
         return AnomalyInvestigationResponse(
             anomaly_id=anomaly.id,
@@ -451,6 +462,9 @@ class AnomalyRecommendationService:
             available_resolutions=cls.AVAILABLE_RESOLUTIONS,
             current_status=anomaly.status,
             current_resolution_notes=anomaly.resolution_notes,
+            reviewed_by=anomaly.reviewed_by,
+            reviewed_by_name=reviewer_name,
+            reviewed_at=anomaly.reviewed_at,
             ai_recommended_action=ai_rec_action
         )
 

@@ -20,6 +20,10 @@ class ConflictException(AttendAIException):
     def __init__(self, detail: str = "Conflict with existing resource"):
         super().__init__(status_code=status.HTTP_409_CONFLICT, detail=detail)
 
+class BadRequestException(AttendAIException):
+    def __init__(self, detail: str = "Bad request parameters"):
+        super().__init__(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
+
 class ValidationException(AttendAIException):
     def __init__(self, detail: str = "Invalid request parameters"):
         super().__init__(status_code=getattr(status, "HTTP_422_UNPROCESSABLE_CONTENT", 422), detail=detail)

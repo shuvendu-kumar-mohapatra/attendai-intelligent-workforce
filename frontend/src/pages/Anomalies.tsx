@@ -59,6 +59,8 @@ export const Anomalies: React.FC = () => {
   >('resolved');
   const [resolutionNotes, setResolutionNotes] = useState('');
   const [submittingReview, setSubmittingReview] = useState(false);
+  const [reviewError, setReviewError] = useState<string | null>(null);
+  const [successNotification, setSuccessNotification] = useState<string | null>(null);
 
   const fetchAnomalies = async () => {
     setLoading(true);
@@ -146,13 +148,27 @@ export const Anomalies: React.FC = () => {
     setInvestigatingId(anomalyId);
     setLoadingInvestigation(true);
     setInvestigationError(null);
+    setReviewError(null);
     setResolutionNotes('');
     setResolutionStatus('resolved');
 
     try {
       const res = await api.get(`/anomalies/${anomalyId}/investigate`);
       setInvestigationData(res.data);
-      if (res.data.ai_recommended_action) {
+      const isClosed =
+        res.data.current_status === 'resolved' ||
+        res.data.current_status === 'dismissed' ||
+        res.data.status === 'resolved' ||
+        res.data.status === 'dismissed';
+
+      if (isClosed) {
+        setResolutionStatus(
+          (res.data.current_status || res.data.status || 'resolved') as any
+        );
+        if (res.data.current_resolution_notes) {
+          setResolutionNotes(res.data.current_resolution_notes);
+        }
+      } else if (res.data.ai_recommended_action) {
         const top = res.data.ai_recommended_action;
         setResolutionNotes(`${top.title}\n${top.explanation}`);
       } else if (res.data.recommended_actions && res.data.recommended_actions.length > 0) {
@@ -171,6 +187,7 @@ export const Anomalies: React.FC = () => {
     setInvestigatingId(null);
     setInvestigationData(null);
     setResolutionNotes('');
+    setReviewError(null);
   };
 
   const handleAdoptAiRecommendation = (rec: AIRecommendedActionDetail) => {
@@ -201,24 +218,36 @@ export const Anomalies: React.FC = () => {
 
   const handleReviewSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!investigatingId) return;
+    if (!investigatingId || submittingReview) return;
 
     if (!resolutionNotes.trim()) {
-      alert('Mandatory resolution notes are required to document the outcome of this investigation.');
+      setReviewError('Mandatory resolution notes are required to document the outcome of this investigation.');
       return;
     }
 
     setSubmittingReview(true);
+    setReviewError(null);
     try {
       await api.put(`/anomalies/${investigatingId}/review`, {
         status: resolutionStatus,
-        resolution_notes: resolutionNotes,
+        resolution_notes: resolutionNotes.trim(),
       });
+      setSuccessNotification(
+        `Anomaly resolution successfully saved to compliance audit trail (Status: ${resolutionStatus.replace(/_/g, ' ')}).`
+      );
       closeInvestigationModal();
-      fetchAnomalies();
-      fetchDashboardRecommendations();
+      await Promise.all([
+        fetchAnomalies(),
+        fetchDashboardRecommendations()
+      ]);
     } catch (err: any) {
-      alert(err.response?.data?.detail || 'Failed to submit investigation resolution');
+      const errorMsg =
+        err.response?.data?.detail ||
+        (typeof err.response?.data === 'string' ? err.response?.data : null) ||
+        err.message ||
+        'Failed to submit investigation resolution';
+      setReviewError(errorMsg);
+      // NOTE: Modal is preserved and resolutionNotes are kept intact so user work is not lost!
     } finally {
       setSubmittingReview(false);
     }
@@ -256,6 +285,22 @@ export const Anomalies: React.FC = () => {
           <span>Run Detection Pipeline</span>
         </button>
       </div>
+
+      {/* Success Notification Banner */}
+      {successNotification && (
+        <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-950 text-xs flex items-center justify-between shadow-xs animate-in fade-in duration-200">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+            <span className="font-semibold">{successNotification}</span>
+          </div>
+          <button
+            onClick={() => setSuccessNotification(null)}
+            className="text-emerald-700 hover:text-emerald-950 p-1 rounded-md transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {/* Ethics & Fairness Notice */}
       <div className="p-3.5 rounded-xl bg-blue-50/70 border border-blue-200/80 text-blue-900 text-xs flex items-start gap-2.5 min-w-0">
@@ -525,7 +570,30 @@ export const Anomalies: React.FC = () => {
                       </p>
                     </td>
                     <td className="py-3.5 px-4 min-w-[260px] max-w-[360px] align-top">
-                      {anom.suggested_action ? (
+                      {anom.status === 'resolved' || anom.status === 'dismissed' ? (
+                        <button
+                          type="button"
+                          onClick={() => openInvestigationModal(anom.id)}
+                          className="w-full text-left p-2.5 rounded-lg bg-emerald-50/70 hover:bg-emerald-100/80 border border-emerald-200/80 text-emerald-950 transition-all duration-150 group shadow-2xs hover:shadow-xs flex flex-col gap-1.5 cursor-pointer"
+                          title="Investigation resolved & closed – Click to view immutable audit record"
+                        >
+                          <div className="flex items-start gap-1.5 w-full min-w-0">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0 mt-0.5" />
+                            <span className="text-[11px] font-semibold text-emerald-950 leading-snug break-words flex-1 min-w-0">
+                              {anom.status === 'resolved' ? 'Resolution Verified & Closed' : 'Dismissed as False Positive'}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between w-full pt-1 border-t border-emerald-100/70 text-[10px] text-emerald-700 font-semibold">
+                            <span className="flex items-center gap-1 group-hover:text-emerald-900">
+                              <span>View Audit Trail</span>
+                              <ChevronRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+                            </span>
+                            <span className="text-[9px] uppercase px-1.5 py-0.5 bg-white/90 rounded border border-emerald-200/60 font-mono text-emerald-800">
+                              Closed
+                            </span>
+                          </div>
+                        </button>
+                      ) : anom.suggested_action ? (
                         <button
                           type="button"
                           onClick={() => openInvestigationModal(anom.id)}
@@ -677,8 +745,8 @@ export const Anomalies: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* SECTION 2: AI-RECOMMENDED ACTION */}
-                  {investigationData.ai_recommended_action && (
+                  {/* SECTION 2: AI-RECOMMENDED ACTION (Omitted for already resolved anomalies) */}
+                  {!(investigationData.current_status === 'resolved' || investigationData.current_status === 'dismissed' || investigationData.status === 'resolved' || investigationData.status === 'dismissed') && investigationData.ai_recommended_action && (
                     <div className="bg-sky-50/70 border border-sky-200 rounded-xl p-4 sm:p-5 shadow-sm space-y-3.5">
                       {/* Header with Title, Source Badge and Priority */}
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-3 border-b border-sky-200/70">
@@ -953,144 +1021,211 @@ export const Anomalies: React.FC = () => {
                     )}
                   </div>
 
-                  {/* SECTION 4: RESOLUTION ACTION & MANDATORY NOTES */}
-                  <form onSubmit={handleReviewSubmit} className="space-y-4 pt-4 border-t border-slate-200">
-                    <div>
-                      <label className="block text-xs font-bold text-dark mb-2">
-                        Select Investigation Resolution Status:
-                      </label>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
-                        <label
-                          className={`p-2.5 border rounded-xl flex items-center gap-2 cursor-pointer transition-colors ${
-                            resolutionStatus === 'resolved'
-                              ? 'bg-emerald-50 border-emerald-300 text-emerald-950 font-semibold'
-                              : 'bg-white border-slate-200 text-dark hover:bg-slate-50'
-                          }`}
-                        >
-                          <input
-                            type="radio"
-                            name="resolution_status"
-                            value="resolved"
-                            checked={resolutionStatus === 'resolved'}
-                            onChange={() => setResolutionStatus('resolved')}
-                            className="text-emerald-600 focus:ring-emerald-500"
-                          />
-                          <span>Resolve (Completed & Verified)</span>
-                        </label>
+                  {/* SECTION 4: RESOLUTION ACTION & MANDATORY NOTES / CLOSED AUDIT RECORD */}
+                  {investigationData.current_status === 'resolved' ||
+                  investigationData.current_status === 'dismissed' ||
+                  investigationData.status === 'resolved' ||
+                  investigationData.status === 'dismissed' ? (
+                    <div className="bg-emerald-50/70 border border-emerald-200 rounded-xl p-4 sm:p-5 space-y-3.5 pt-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-3 border-b border-emerald-200/70">
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center shadow-sm">
+                            <ShieldCheck className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-950 block">
+                              Investigation Audit Record (Closed)
+                            </span>
+                            <span className="text-[10px] text-emerald-800">
+                              This anomaly has been officially investigated and permanently logged in the compliance audit trail.
+                            </span>
+                          </div>
+                        </div>
+                        <span className="px-3 py-1 rounded-full text-xs font-bold uppercase border bg-emerald-100 text-emerald-900 border-emerald-300 self-start sm:self-auto">
+                          {(investigationData.current_status || investigationData.status || 'resolved').replace(/_/g, ' ')}
+                        </span>
+                      </div>
 
-                        <label
-                          className={`p-2.5 border rounded-xl flex items-center gap-2 cursor-pointer transition-colors ${
-                            resolutionStatus === 'dismissed'
-                              ? 'bg-slate-100 border-slate-300 text-slate-900 font-semibold'
-                              : 'bg-white border-slate-200 text-dark hover:bg-slate-50'
-                          }`}
-                        >
-                          <input
-                            type="radio"
-                            name="resolution_status"
-                            value="dismissed"
-                            checked={resolutionStatus === 'dismissed'}
-                            onChange={() => setResolutionStatus('dismissed')}
-                            className="text-slate-600 focus:ring-slate-500"
-                          />
-                          <span>Dismiss (False Positive)</span>
-                        </label>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                        <div className="p-2.5 bg-white border border-emerald-100 rounded-lg">
+                          <span className="text-[10px] text-secondary font-semibold uppercase block">Reviewed By</span>
+                          <span className="font-bold text-dark text-xs block mt-0.5">
+                            {investigationData.reviewed_by_name || 'HR Compliance / Administrator'}
+                          </span>
+                        </div>
+                        <div className="p-2.5 bg-white border border-emerald-100 rounded-lg">
+                          <span className="text-[10px] text-secondary font-semibold uppercase block">Resolution Timestamp</span>
+                          <span className="font-mono text-dark text-xs block mt-0.5">
+                            {investigationData.reviewed_at ? new Date(investigationData.reviewed_at).toLocaleString() : 'Permanently Logged'}
+                          </span>
+                        </div>
+                      </div>
 
-                        <label
-                          className={`p-2.5 border rounded-xl flex items-center gap-2 cursor-pointer transition-colors ${
-                            resolutionStatus === 'correction_requested'
-                              ? 'bg-purple-50 border-purple-300 text-purple-950 font-semibold'
-                              : 'bg-white border-slate-200 text-dark hover:bg-slate-50'
-                          }`}
-                        >
-                          <input
-                            type="radio"
-                            name="resolution_status"
-                            value="correction_requested"
-                            checked={resolutionStatus === 'correction_requested'}
-                            onChange={() => setResolutionStatus('correction_requested')}
-                            className="text-purple-600 focus:ring-purple-500"
-                          />
-                          <span>Initiate Attendance Correction</span>
-                        </label>
+                      <div>
+                        <span className="text-[10px] text-secondary font-semibold uppercase block mb-1">
+                          Documented Resolution Notes & Justification
+                        </span>
+                        <div className="p-3 bg-white border border-emerald-200/80 rounded-lg text-slate-800 text-xs font-mono whitespace-pre-wrap">
+                          {investigationData.current_resolution_notes || resolutionNotes || 'Resolution completed and verified.'}
+                        </div>
+                      </div>
 
-                        <label
-                          className={`p-2.5 border rounded-xl flex items-center gap-2 cursor-pointer transition-colors ${
-                            resolutionStatus === 'escalated'
-                              ? 'bg-red-50 border-red-300 text-red-950 font-semibold'
-                              : 'bg-white border-slate-200 text-dark hover:bg-slate-50'
-                          }`}
+                      <div className="flex justify-end pt-2">
+                        <button
+                          type="button"
+                          onClick={closeInvestigationModal}
+                          className="px-5 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-semibold shadow-sm transition-colors"
                         >
-                          <input
-                            type="radio"
-                            name="resolution_status"
-                            value="escalated"
-                            checked={resolutionStatus === 'escalated'}
-                            onChange={() => setResolutionStatus('escalated')}
-                            className="text-red-600 focus:ring-red-500"
-                          />
-                          <span>Escalate to HR/Admin</span>
-                        </label>
-
-                        <label
-                          className={`p-2.5 border rounded-xl flex items-center gap-2 cursor-pointer transition-colors ${
-                            resolutionStatus === 'under_review'
-                              ? 'bg-amber-50 border-amber-300 text-amber-950 font-semibold'
-                              : 'bg-white border-slate-200 text-dark hover:bg-slate-50'
-                          }`}
-                        >
-                          <input
-                            type="radio"
-                            name="resolution_status"
-                            value="under_review"
-                            checked={resolutionStatus === 'under_review'}
-                            onChange={() => setResolutionStatus('under_review')}
-                            className="text-amber-600 focus:ring-amber-500"
-                          />
-                          <span>Mark for Further Review</span>
-                        </label>
+                          Close Investigation Record
+                        </button>
                       </div>
                     </div>
+                  ) : (
+                    <form onSubmit={handleReviewSubmit} className="space-y-4 pt-4 border-t border-slate-200">
+                      {reviewError && (
+                        <div className="p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center gap-2">
+                          <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0" />
+                          <span className="font-medium">{reviewError}</span>
+                        </div>
+                      )}
 
-                    <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <label className="block text-xs font-bold text-dark">
-                          Mandatory Resolution Notes & Action Justification <span className="text-danger">*</span>
+                      <div>
+                        <label className="block text-xs font-bold text-dark mb-2">
+                          Select Investigation Resolution Status:
                         </label>
-                        <span className="text-[10px] text-secondary">Preserved in immutable compliance audit logs</span>
-                      </div>
-                      <textarea
-                        required
-                        rows={3}
-                        placeholder="Document verified departure time, supervisor approval status, shift correction rationale..."
-                        value={resolutionNotes}
-                        onChange={(e) => setResolutionNotes(e.target.value)}
-                        className="w-full px-3 py-2 text-xs bg-slate-50 border border-border rounded-lg text-dark focus:bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                      />
-                    </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                          <label
+                            className={`p-2.5 border rounded-xl flex items-center gap-2 cursor-pointer transition-colors ${
+                              resolutionStatus === 'resolved'
+                                ? 'bg-emerald-50 border-emerald-300 text-emerald-950 font-semibold'
+                                : 'bg-white border-slate-200 text-dark hover:bg-slate-50'
+                            }`}
+                          >
+                            <input
+                              type="radio"
+                              name="resolution_status"
+                              value="resolved"
+                              checked={resolutionStatus === 'resolved'}
+                              onChange={() => setResolutionStatus('resolved')}
+                              className="text-emerald-600 focus:ring-emerald-500"
+                            />
+                            <span>Resolve (Completed & Verified)</span>
+                          </label>
 
-                    <div className="flex justify-end gap-2.5 pt-3">
-                      <button
-                        type="button"
-                        onClick={closeInvestigationModal}
-                        className="px-4 py-2 border border-border rounded-lg text-xs font-medium text-secondary hover:bg-slate-50"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        type="submit"
-                        disabled={submittingReview}
-                        className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-colors flex items-center gap-1.5 disabled:opacity-50"
-                      >
-                        {submittingReview ? (
-                          <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                        ) : (
-                          <ShieldCheck className="w-4 h-4" />
-                        )}
-                        <span>Save Resolution & Audit Trail</span>
-                      </button>
-                    </div>
-                  </form>
+                          <label
+                            className={`p-2.5 border rounded-xl flex items-center gap-2 cursor-pointer transition-colors ${
+                              resolutionStatus === 'dismissed'
+                                ? 'bg-slate-100 border-slate-300 text-slate-900 font-semibold'
+                                : 'bg-white border-slate-200 text-dark hover:bg-slate-50'
+                            }`}
+                          >
+                            <input
+                              type="radio"
+                              name="resolution_status"
+                              value="dismissed"
+                              checked={resolutionStatus === 'dismissed'}
+                              onChange={() => setResolutionStatus('dismissed')}
+                              className="text-slate-600 focus:ring-slate-500"
+                            />
+                            <span>Dismiss (False Positive)</span>
+                          </label>
+
+                          <label
+                            className={`p-2.5 border rounded-xl flex items-center gap-2 cursor-pointer transition-colors ${
+                              resolutionStatus === 'correction_requested'
+                                ? 'bg-purple-50 border-purple-300 text-purple-950 font-semibold'
+                                : 'bg-white border-slate-200 text-dark hover:bg-slate-50'
+                            }`}
+                          >
+                            <input
+                              type="radio"
+                              name="resolution_status"
+                              value="correction_requested"
+                              checked={resolutionStatus === 'correction_requested'}
+                              onChange={() => setResolutionStatus('correction_requested')}
+                              className="text-purple-600 focus:ring-purple-500"
+                            />
+                            <span>Initiate Attendance Correction</span>
+                          </label>
+
+                          <label
+                            className={`p-2.5 border rounded-xl flex items-center gap-2 cursor-pointer transition-colors ${
+                              resolutionStatus === 'escalated'
+                                ? 'bg-red-50 border-red-300 text-red-950 font-semibold'
+                                : 'bg-white border-slate-200 text-dark hover:bg-slate-50'
+                            }`}
+                          >
+                            <input
+                              type="radio"
+                              name="resolution_status"
+                              value="escalated"
+                              checked={resolutionStatus === 'escalated'}
+                              onChange={() => setResolutionStatus('escalated')}
+                              className="text-red-600 focus:ring-red-500"
+                            />
+                            <span>Escalate to HR/Admin</span>
+                          </label>
+
+                          <label
+                            className={`p-2.5 border rounded-xl flex items-center gap-2 cursor-pointer transition-colors ${
+                              resolutionStatus === 'under_review'
+                                ? 'bg-amber-50 border-amber-300 text-amber-950 font-semibold'
+                                : 'bg-white border-slate-200 text-dark hover:bg-slate-50'
+                            }`}
+                          >
+                            <input
+                              type="radio"
+                              name="resolution_status"
+                              value="under_review"
+                              checked={resolutionStatus === 'under_review'}
+                              onChange={() => setResolutionStatus('under_review')}
+                              className="text-amber-600 focus:ring-amber-500"
+                            />
+                            <span>Mark for Further Review</span>
+                          </label>
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="block text-xs font-bold text-dark">
+                            Mandatory Resolution Notes & Action Justification <span className="text-danger">*</span>
+                          </label>
+                          <span className="text-[10px] text-secondary">Preserved in immutable compliance audit logs</span>
+                        </div>
+                        <textarea
+                          required
+                          rows={3}
+                          placeholder="Document verified departure time, supervisor approval status, shift correction rationale..."
+                          value={resolutionNotes}
+                          onChange={(e) => setResolutionNotes(e.target.value)}
+                          className="w-full px-3 py-2 text-xs bg-slate-50 border border-border rounded-lg text-dark focus:bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        />
+                      </div>
+
+                      <div className="flex justify-end gap-2.5 pt-3">
+                        <button
+                          type="button"
+                          onClick={closeInvestigationModal}
+                          className="px-4 py-2 border border-border rounded-lg text-xs font-medium text-secondary hover:bg-slate-50"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={submittingReview}
+                          className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-colors flex items-center gap-1.5 disabled:opacity-50"
+                        >
+                          {submittingReview ? (
+                            <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                          ) : (
+                            <ShieldCheck className="w-4 h-4" />
+                          )}
+                          <span>Save Resolution & Audit Trail</span>
+                        </button>
+                      </div>
+                    </form>
+                  )}
                 </div>
               ) : null}
             </div>

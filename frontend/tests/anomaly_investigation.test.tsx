@@ -186,4 +186,197 @@ describe('Anomaly Investigation Popup – AI-Recommended Action', () => {
     fireEvent.click(applyFixBtn);
     expect(notesTextarea.value).toContain('Actions Taken:');
   });
+
+  it('submits resolution successfully, closes modal, and shows success notification', async () => {
+    (api.get as any).mockImplementation((url: string) => {
+      if (url.includes('/anomalies/recommendations/dashboard')) {
+        return Promise.resolve({
+          data: { pending_count: 1, high_priority_count: 1, repeated_patterns_count: 0, prioritized_anomalies: [] },
+        });
+      }
+      if (url === '/anomalies' || url.startsWith('/anomalies?')) {
+        return Promise.resolve({ data: mockAnomaliesList });
+      }
+      if (url.includes('/investigate')) {
+        return Promise.resolve({ data: mockInvestigationData });
+      }
+      return Promise.reject(new Error(`Unhandled URL: ${url}`));
+    });
+
+    (api.put as any).mockResolvedValue({
+      data: {
+        id: 'anom-101',
+        status: 'resolved',
+        resolution_notes: 'Supervisor verified overtime authorization.',
+      },
+    });
+
+    render(
+      <AuthProvider>
+        <BrowserRouter>
+          <Anomalies />
+        </BrowserRouter>
+      </AuthProvider>
+    );
+
+    // Open investigation popup
+    await waitFor(() => {
+      expect(screen.getByText('Stephanie Wright')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText('Investigate'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Investigate Anomaly Flag & Prescriptive Actions')).toBeInTheDocument();
+    });
+
+    // Enter notes
+    const notesTextarea = screen.getByPlaceholderText(/Document verified departure time/i);
+    fireEvent.change(notesTextarea, { target: { value: 'Supervisor verified overtime authorization.' } });
+
+    // Click "Save Resolution & Audit Trail"
+    const submitBtn = screen.getByText('Save Resolution & Audit Trail');
+    fireEvent.click(submitBtn);
+
+    // Verify PUT request payload
+    await waitFor(() => {
+      expect(api.put).toHaveBeenCalledWith('/anomalies/anom-101/review', {
+        status: 'resolved',
+        resolution_notes: 'Supervisor verified overtime authorization.',
+      });
+    });
+
+    // Modal should close and success notification banner should be visible
+    await waitFor(() => {
+      expect(screen.queryByText('Investigate Anomaly Flag & Prescriptive Actions')).not.toBeInTheDocument();
+      expect(screen.getByText(/Anomaly resolution successfully saved to compliance audit trail/)).toBeInTheDocument();
+    });
+  });
+
+  it('handles submission error gracefully, displaying backend error and preserving notes', async () => {
+    (api.get as any).mockImplementation((url: string) => {
+      if (url.includes('/anomalies/recommendations/dashboard')) {
+        return Promise.resolve({
+          data: { pending_count: 1, high_priority_count: 1, repeated_patterns_count: 0, prioritized_anomalies: [] },
+        });
+      }
+      if (url === '/anomalies' || url.startsWith('/anomalies?')) {
+        return Promise.resolve({ data: mockAnomaliesList });
+      }
+      if (url.includes('/investigate')) {
+        return Promise.resolve({ data: mockInvestigationData });
+      }
+      return Promise.reject(new Error(`Unhandled URL: ${url}`));
+    });
+
+    // Simulate backend 409 Conflict error
+    (api.put as any).mockRejectedValue({
+      response: {
+        data: {
+          detail: 'This anomaly has already been resolved and closed (resolved). Re-resolving closed anomalies is not permitted.',
+        },
+      },
+    });
+
+    render(
+      <AuthProvider>
+        <BrowserRouter>
+          <Anomalies />
+        </BrowserRouter>
+      </AuthProvider>
+    );
+
+    // Open investigation popup
+    await waitFor(() => {
+      expect(screen.getByText('Stephanie Wright')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText('Investigate'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Investigate Anomaly Flag & Prescriptive Actions')).toBeInTheDocument();
+    });
+
+    // Enter notes
+    const notesTextarea = screen.getByPlaceholderText(/Document verified departure time/i) as HTMLTextAreaElement;
+    fireEvent.change(notesTextarea, { target: { value: 'Duplicate attempt to close anomaly.' } });
+
+    // Submit
+    const submitBtn = screen.getByText('Save Resolution & Audit Trail');
+    fireEvent.click(submitBtn);
+
+    // Verify error is displayed inside the modal
+    await waitFor(() => {
+      expect(
+        screen.getByText(/This anomaly has already been resolved and closed/)
+      ).toBeInTheDocument();
+    });
+
+    // Modal must NOT close and notes must remain intact
+    expect(screen.getByText('Investigate Anomaly Flag & Prescriptive Actions')).toBeInTheDocument();
+    expect(notesTextarea.value).toBe('Duplicate attempt to close anomaly.');
+  });
+
+  it('renders closed audit record for already resolved anomalies without AI recommendations or resolution form', async () => {
+    const resolvedInvestigationData = {
+      ...mockInvestigationData,
+      current_status: 'resolved',
+      status: 'resolved',
+      current_resolution_notes: 'Audited and verified by Lead HR Manager.',
+      reviewed_by_name: 'Sarah Connor (HR Admin)',
+      reviewed_at: '2026-11-18T10:00:00Z',
+      ai_recommended_action: undefined,
+    };
+
+    (api.get as any).mockImplementation((url: string) => {
+      if (url.includes('/anomalies/recommendations/dashboard')) {
+        return Promise.resolve({
+          data: { pending_count: 0, high_priority_count: 0, repeated_patterns_count: 0, prioritized_anomalies: [] },
+        });
+      }
+      if (url === '/anomalies' || url.startsWith('/anomalies?')) {
+        return Promise.resolve({
+          data: [
+            {
+              ...mockAnomaliesList[0],
+              status: 'resolved',
+              resolution_notes: 'Audited and verified by Lead HR Manager.',
+            },
+          ],
+        });
+      }
+      if (url.includes('/investigate')) {
+        return Promise.resolve({ data: resolvedInvestigationData });
+      }
+      return Promise.reject(new Error(`Unhandled URL: ${url}`));
+    });
+
+    render(
+      <AuthProvider>
+        <BrowserRouter>
+          <Anomalies />
+        </BrowserRouter>
+      </AuthProvider>
+    );
+
+    // Open investigation popup
+    await waitFor(() => {
+      expect(screen.getByText('Stephanie Wright')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText('Investigate'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Investigate Anomaly Flag & Prescriptive Actions')).toBeInTheDocument();
+    });
+
+    // Verify Closed Audit Record section is rendered
+    expect(screen.getByText('Investigation Audit Record (Closed)')).toBeInTheDocument();
+    expect(screen.getByText('Sarah Connor (HR Admin)')).toBeInTheDocument();
+    expect(screen.getByText('Audited and verified by Lead HR Manager.')).toBeInTheDocument();
+    expect(screen.getByText('Close Investigation Record')).toBeInTheDocument();
+
+    // Verify AI-Recommended Action section is NOT rendered
+    expect(screen.queryByText('AI-Recommended Action')).not.toBeInTheDocument();
+
+    // Verify "Save Resolution & Audit Trail" form is NOT rendered
+    expect(screen.queryByText('Save Resolution & Audit Trail')).not.toBeInTheDocument();
+  });
 });
