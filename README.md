@@ -526,5 +526,14 @@ Explore the full documentation suite in the `docs/` directory:
 
 ---
 
+## Contributors
+
+- Vaishnavi R Kannur
+- Priyanka
+- C Sandhya
+- Shuvendu Kumar Mohapatra
+
+---
+
 ### License & Compliance
 AttendAI is distributed under the MIT License. Enterprise deployments must adhere to local statutory labor guidelines regarding employee attendance monitoring and timecard record retention.
