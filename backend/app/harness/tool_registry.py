@@ -142,6 +142,24 @@ TOOL_DEFINITIONS = [
             }
         }
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_my_anomalies",
+            "description": "Get current authenticated employee's personal attendance anomaly flags, investigation status, detection date, severity, and explanations.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "status": {
+                        "type": "string",
+                        "enum": ["pending", "investigating", "resolved", "dismissed"],
+                        "description": "Filter by anomaly review status"
+                    },
+                    "limit": {"type": "integer", "description": "Max anomalies to return (default 10)"}
+                }
+            }
+        }
+    },
 
     # -------------------------------------------------------------
     # Organization-Wide Universal Query Tools (Admin & HR Manager)
@@ -409,6 +427,15 @@ TOOL_DEFINITIONS = [
                         "enum": ["low", "medium", "high", "critical"],
                         "description": "Filter by anomaly severity"
                     },
+                    "department": {
+                        "type": "string",
+                        "description": "Filter anomalies by department name (e.g. 'Engineering', 'Customer Success')"
+                    },
+                    "period": {
+                        "type": "string",
+                        "enum": ["today", "this_week", "last_week", "this_month", "last_month", "last_30_days", "this_year"],
+                        "description": "Time window for anomaly detection date"
+                    },
                     "limit": {"type": "integer", "description": "Max anomalies to return (default 10)"}
                 }
             }
@@ -432,8 +459,9 @@ TOOL_DEFINITIONS = [
 ]
 
 class ToolRegistry:
-    @staticmethod
+    @classmethod
     async def execute_tool(
+        cls,
         name: str,
         arguments: Dict[str, Any],
         db: AsyncSession,
@@ -443,7 +471,28 @@ class ToolRegistry:
         """
         Executes approved tool with verified permissions, organization isolation, and scope.
         Strictly enforces role-based access control and personal identity boundaries.
+        Catches any database errors and returns a meaningful error message.
         """
+        try:
+            return await cls._execute_tool_inner(
+                name=name,
+                arguments=arguments,
+                db=db,
+                user=user,
+                employee=employee
+            )
+        except Exception as e:
+            return {"error": f"Database query failed for tool '{name}': {str(e)}"}
+
+    @classmethod
+    async def _execute_tool_inner(
+        cls,
+        name: str,
+        arguments: Dict[str, Any],
+        db: AsyncSession,
+        user: Any,
+        employee: Optional[Employee] = None
+    ) -> Dict[str, Any]:
         org_id = user.organization_id
 
         # Role-based authorization gate
@@ -811,6 +860,53 @@ class ToolRegistry:
                         "status": r.status
                     }
                     for r in records
+                ]
+            }
+
+        # -------------------------------------------------------------
+        # Tool: get_my_anomalies
+        # -------------------------------------------------------------
+        elif name == "get_my_anomalies":
+            if not employee:
+                return {"error": "Authenticated user is not linked to an employee profile."}
+
+            status_filter = arguments.get("status")
+            limit = min(int(arguments.get("limit", 10)), 50)
+
+            stmt = (
+                select(AttendanceAnomaly)
+                .where(
+                    and_(
+                        AttendanceAnomaly.employee_id == employee.id,
+                        AttendanceAnomaly.organization_id == org_id
+                    )
+                )
+                .order_by(AttendanceAnomaly.date.desc())
+            )
+            if status_filter:
+                st = status_filter.strip().lower()
+                if st in ["pending", "unresolved"]:
+                    stmt = stmt.where(AttendanceAnomaly.status.in_(["pending", "investigating"]))
+                else:
+                    stmt = stmt.where(AttendanceAnomaly.status == st)
+
+            records = (await db.execute(stmt.limit(limit))).scalars().all()
+
+            return {
+                "employee": f"{employee.first_name} {employee.last_name}",
+                "employee_code": employee.employee_code,
+                "total_count": len(records),
+                "my_anomalies": [
+                    {
+                        "date": str(a.date),
+                        "anomaly_type": a.anomaly_type,
+                        "severity": a.severity,
+                        "score": round(a.score, 2),
+                        "detection_method": a.detection_method,
+                        "status": a.status,
+                        "explanation": a.explanation
+                    }
+                    for a in records
                 ]
             }
 
@@ -1665,25 +1761,62 @@ class ToolRegistry:
         elif name == "get_anomaly_reports":
             status_filter = arguments.get("status")
             severity_filter = arguments.get("severity")
+            department_filter = arguments.get("department")
+            period_filter = arguments.get("period")
             limit = min(int(arguments.get("limit", 10)), 50)
 
             stmt = (
-                select(AttendanceAnomaly, Employee)
+                select(AttendanceAnomaly, Employee, Department.name.label("department_name"))
                 .join(Employee, Employee.id == AttendanceAnomaly.employee_id)
+                .outerjoin(Department, Department.id == Employee.department_id)
                 .where(AttendanceAnomaly.organization_id == org_id)
                 .order_by(AttendanceAnomaly.date.desc())
             )
+
+            if department_filter:
+                dept_clean = department_filter.strip().lower()
+                if dept_clean in ["my department", "my_department", "mine"]:
+                    if employee and employee.department_id:
+                        stmt = stmt.where(Employee.department_id == employee.department_id)
+                else:
+                    stmt = stmt.where(Department.name.ilike(f"%{department_filter.strip()}%"))
+
             if status_filter:
-                stmt = stmt.where(AttendanceAnomaly.status == status_filter.lower())
+                st = status_filter.strip().lower()
+                if st in ["pending", "unresolved"]:
+                    stmt = stmt.where(AttendanceAnomaly.status.in_(["pending", "investigating"]))
+                elif st in ["resolved", "dismissed", "under_review", "escalated", "correction_requested"]:
+                    stmt = stmt.where(AttendanceAnomaly.status == st)
+                else:
+                    stmt = stmt.where(AttendanceAnomaly.status == st)
+
             if severity_filter:
-                stmt = stmt.where(AttendanceAnomaly.severity == severity_filter.lower())
+                sev = severity_filter.strip().lower()
+                if sev in ["high", "critical"]:
+                    stmt = stmt.where(AttendanceAnomaly.severity.in_(["high", "critical"]))
+                else:
+                    stmt = stmt.where(AttendanceAnomaly.severity == sev)
+
+            if period_filter:
+                start_date, end_date, period_label = DateRangeResolver.resolve_period(period_filter)
+                stmt = stmt.where(AttendanceAnomaly.date >= start_date, AttendanceAnomaly.date <= end_date)
+            else:
+                period_label = "All Time"
 
             results = (await db.execute(stmt.limit(limit))).all()
             return {
+                "period": period_label,
+                "filter_status": status_filter or "all",
+                "filter_severity": severity_filter or "all",
+                "filter_department": department_filter or "all",
+                "total_count": len(results),
                 "anomalies": [
                     {
+                        "id": a.id,
                         "date": str(a.date),
                         "employee": f"{emp.first_name} {emp.last_name}",
+                        "employee_code": emp.employee_code,
+                        "department": dept_name or "General",
                         "anomaly_type": a.anomaly_type,
                         "severity": a.severity,
                         "score": round(a.score, 2),
@@ -1691,7 +1824,7 @@ class ToolRegistry:
                         "status": a.status,
                         "explanation": a.explanation
                     }
-                    for a, emp in results
+                    for a, emp, dept_name in results
                 ]
             }
 

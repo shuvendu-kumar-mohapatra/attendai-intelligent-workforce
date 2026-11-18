@@ -79,9 +79,21 @@ class MockLLMProvider(BaseLLMProvider):
             # -------------------------------------------------------------
             # 1. Employee Personal Inquiries (strictly personal tools)
             # -------------------------------------------------------------
-            if is_employee_scope or "my" in content or "i do" in content or "was i" in content:
+            if is_employee_scope or (("my" in content or "i do" in content or "was i" in content) and "department" not in content):
+                # Personal Anomalies (Query 7: "Show my attendance anomalies")
+                if "anomal" in content or ("flag" in content and "department" not in content):
+                    tool_calls = [{
+                        "id": "call_my_anom_1",
+                        "type": "function",
+                        "function": {
+                            "name": "get_my_anomalies",
+                            "arguments": "{}"
+                        }
+                    }]
+                    reply = "Retrieving your personal attendance anomaly flags and investigation status."
+
                 # Personal Overtime
-                if "overtime" in content or "ot" in content:
+                elif "overtime" in content or "ot" in content:
                     period = "this_month" if "this month" in content or "month" in content else "this_week"
                     tool_calls = [{
                         "id": "call_my_ot_1",
@@ -456,16 +468,50 @@ class MockLLMProvider(BaseLLMProvider):
                 reply = f"Calculating overtime records for {period}."
 
             # Anomalies
-            elif "anomaly" in content or "anomalies" in content or "flag" in content:
+            elif any(w in content for w in ["anomaly", "anomalies", "flagged attendance", "unresolved anomalies", "anomaly detections"]):
+                args = {}
+                # Query 5: Explain the most recent anomaly / latest anomaly
+                if any(w in content for w in ["explain", "most recent", "latest", "last anomaly", "recent anomaly"]):
+                    args["limit"] = 1
+                    reply = "Retrieving and analyzing the most recent workforce attendance anomaly."
+                # Query 3: High severity anomalies
+                elif any(w in content for w in ["high severity", "high-severity", "high", "critical", "severe"]):
+                    args["severity"] = "high"
+                    reply = "Filtering for high and critical severity attendance anomalies."
+                # Query 4: Department anomalies
+                elif "department" in content or "dept" in content:
+                    dept_match = re.search(r'(?:in|for)\s+([a-zA-Z\s]+?)(?:\s+department|$)', content)
+                    if dept_match and dept_match.group(1).strip().lower() not in ["my", "the", "all"]:
+                        args["department"] = dept_match.group(1).strip().title()
+                    else:
+                        args["department"] = "my department"
+                    reply = f"Querying attendance anomalies for {args.get('department', 'department')}."
+                # Query 6: Anomalies detected this month / period
+                elif "this month" in content or "month" in content:
+                    args["period"] = "this_month"
+                    reply = "Querying attendance anomalies detected this month."
+                elif "this week" in content or "week" in content:
+                    args["period"] = "this_week"
+                    reply = "Querying attendance anomalies detected this week."
+                elif "today" in content:
+                    args["period"] = "today"
+                    reply = "Querying attendance anomalies detected today."
+                # Query 1 & 2: Pending / Unresolved anomalies
+                elif any(w in content for w in ["pending", "unresolved", "open", "investigate", "action needed"]):
+                    args["status"] = "pending"
+                    reply = "Fetching pending and unresolved anomaly investigation flags."
+                else:
+                    args["status"] = "pending"
+                    reply = "Retrieving pending attendance anomaly flags."
+
                 tool_calls = [{
                     "id": "call_anom_1",
                     "type": "function",
                     "function": {
                         "name": "get_anomaly_reports",
-                        "arguments": json.dumps({"status": "pending"})
+                        "arguments": json.dumps(args)
                     }
                 }]
-                reply = "Fetching anomaly investigation flags."
 
             # Department Analytics
             elif "department" in content or "headcount" in content or "attendance rate" in content:

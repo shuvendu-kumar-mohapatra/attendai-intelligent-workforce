@@ -39,8 +39,25 @@ class OutputValidator:
             tool_name = tr.get("tool_name", "")
             output = tr.get("output", {})
 
-            # CRITICAL: Never create citations for failed or permission-denied tools!
+            # CRITICAL: Never create citations for failed, empty, or permission-denied tools!
             if not isinstance(output, dict) or "error" in output:
+                continue
+
+            # Do not show database citations as a substitute for actual results when no records exist
+            has_records = False
+            for k in ["anomalies", "my_anomalies", "records", "recent_records", "overtime_records",
+                      "late_records", "late_employees", "top_overtime_employees", "absent_employees",
+                      "flagged_employees", "leave_balances", "shifts", "history", "matches", "departments", "employees"]:
+                if k in output:
+                    v = output[k]
+                    if (isinstance(v, list) and len(v) > 0) or (isinstance(v, dict) and len(v) > 0):
+                        has_records = True
+                        break
+            if not has_records:
+                if any(output.get(c, 0) > 0 for c in ["total_count", "total_shifts_completed", "total_worked_hours", "total_late_count"]):
+                    has_records = True
+
+            if not has_records:
                 continue
 
             if tool_name == "search_attendance_policy":
@@ -69,6 +86,24 @@ class OutputValidator:
         return citations
 
     @classmethod
+    def _is_empty_or_heading_only(cls, text: str) -> bool:
+        if not text or not text.strip():
+            return True
+        lines = [l.strip() for l in text.split("\n") if l.strip()]
+        # Strip all markdown headers, horizontal rules, and blank characters
+        content_lines = [
+            l for l in lines
+            if not l.startswith("#") and not l.startswith("---") and not l.startswith("===")
+        ]
+        if not content_lines:
+            return True
+        # If remaining content is just trivial boilerplate without data
+        joined = " ".join(content_lines).strip().lower()
+        if joined in ["workforce intelligence overview", "overview", "summary", "here are the results:", "results:"]:
+            return True
+        return False
+
+    @classmethod
     def _remove_raw_json_and_format(cls, text: str, tool_results: List[Dict[str, Any]]) -> str:
         """
         Inspects if text contains unparsed JSON or raw Python dictionary representations,
@@ -81,7 +116,7 @@ class OutputValidator:
             if not text or not text.strip() or not any(k in text.lower() for k in ["permission denied", "authorization"]):
                 return err_md
 
-        if not text or not text.strip():
+        if not text or not text.strip() or cls._is_empty_or_heading_only(text):
             if tool_results:
                 return cls._synthesize_tool_results_to_markdown(tool_results)
             return "No records were found matching your criteria in the verified workforce database."
@@ -119,8 +154,24 @@ class OutputValidator:
 
         # Strip technical execution remnants if any
         cleaned = re.sub(r'<tool_call>.*?</tool_call>', '', text, flags=re.DOTALL)
-        cleaned = re.sub(r'`\{.*?Tool:.*?`', '', cleaned)
-        return cleaned.strip()
+        cleaned = re.sub(r'`\{.*?Tool:.*?`', '', cleaned).strip()
+
+        # Check again if cleaned text is only headings without content
+        if cls._is_empty_or_heading_only(cleaned):
+            if tool_results:
+                return cls._synthesize_tool_results_to_markdown(tool_results)
+            return "No records were found matching your criteria in the verified workforce database."
+
+        # Verify that if tool_results has structured tables (like anomalies), they are represented
+        has_anomalies = any(
+            isinstance(tr.get("output"), dict) and "anomalies" in tr["output"] and tr["output"]["anomalies"]
+            for tr in tool_results
+        )
+        if has_anomalies and "|" not in cleaned:
+            # LLM missed the actual table records, synthesize them
+            return cls._synthesize_tool_results_to_markdown(tool_results)
+
+        return cleaned
 
     @classmethod
     def _format_parsed_json_to_markdown(cls, data: Any) -> str:
@@ -373,12 +424,103 @@ class OutputValidator:
             else:
                 sections.append("✅ *No employees matched the threshold for combined repeated tardiness and high overtime.*")
 
-        # 14. Fallback formatting
+        # 14. Attendance Anomalies (get_anomaly_reports)
+        elif "anomalies" in data:
+            anomalies = data.get("anomalies", [])
+            period = data.get("period", "All Time")
+            status_f = data.get("filter_status", "all")
+            dept_f = data.get("filter_department", "all")
+            sev_f = data.get("filter_severity", "all")
+            total = data.get("total_count", len(anomalies))
+
+            sections.append("### Workforce Attendance Anomalies & Risk Analysis")
+            meta_parts = []
+            if period != "All Time":
+                meta_parts.append(f"**Period:** {period}")
+            if dept_f != "all":
+                meta_parts.append(f"**Department:** {dept_f}")
+            if status_f != "all":
+                meta_parts.append(f"**Status:** {status_f.title()}")
+            if sev_f != "all":
+                meta_parts.append(f"**Severity:** {sev_f.title()}")
+            meta_parts.append(f"**Total Flagged:** **{total}**")
+            sections.append(" | ".join(meta_parts) + "\n")
+
+            if anomalies:
+                if len(anomalies) == 1:
+                    a = anomalies[0]
+                    clean_type = a.get('anomaly_type', '').replace('_', ' ').title()
+                    sev = a.get('severity', '').lower()
+                    sev_badge = f"🔴 {sev.upper()}" if sev in ["high", "critical"] else (f"🟡 {sev.upper()}" if sev == "medium" else f"🟢 {sev.upper()}")
+                    sections.append(f"#### Most Recent Flagged Anomaly: {a.get('employee')} (`{a.get('employee_code')}`)")
+                    sections.append(f"- **Detection Date:** {a.get('date')}")
+                    sections.append(f"- **Department:** {a.get('department')}")
+                    sections.append(f"- **Anomaly Type:** `{clean_type}`")
+                    sections.append(f"- **Severity Level:** {sev_badge} (Outlier Score: {a.get('score')})")
+                    sections.append(f"- **Detection Engine:** {a.get('detection_method')}")
+                    sections.append(f"- **Investigation Status:** {a.get('status', '').title()}")
+                    sections.append(f"\n**Root Cause & Analysis:**\n> {a.get('explanation')}\n")
+                else:
+                    sections.append("| Date | Employee | ID | Department | Anomaly Type | Severity | Score | Status | Details / Explanation |")
+                    sections.append("| :--- | :--- | :---: | :--- | :--- | :---: | :---: | :---: | :--- |")
+                    for a in anomalies:
+                        sev = a.get('severity', '').lower()
+                        sev_badge = f"🔴 {sev.upper()}" if sev in ["high", "critical"] else (f"🟡 {sev.upper()}" if sev == "medium" else f"🟢 {sev.upper()}")
+                        stat_badge = "⏳ Pending" if a.get('status') == "pending" else f"✅ {a.get('status', '').title()}"
+                        expl = a.get('explanation', '')
+                        short_expl = expl if len(expl) <= 110 else expl[:107] + "..."
+                        clean_type = a.get('anomaly_type', '').replace('_', ' ').title()
+                        sections.append(
+                            f"| {a.get('date')} | **{a.get('employee')}** | `{a.get('employee_code')}` | {a.get('department')} | "
+                            f"{clean_type} | {sev_badge} | {a.get('score')} | {stat_badge} | {short_expl} |"
+                        )
+            else:
+                return "No pending anomalies were found within your authorized department scope."
+
+        # 15. Personal Employee Anomalies (get_my_anomalies)
+        elif "my_anomalies" in data:
+            anomalies = data.get("my_anomalies", [])
+            emp_name = data.get("employee", "You")
+            emp_code = data.get("employee_code", "")
+            total = data.get("total_count", len(anomalies))
+
+            if not anomalies or total == 0:
+                return "No pending anomalies were found within your authorized department scope."
+
+            sections.append("### Personal Attendance Anomaly Flags")
+            sections.append(f"**Employee:** **{emp_name}** (`{emp_code}`) | **Active Flags:** **{total}**\n")
+
+            sections.append("| Date | Anomaly Type | Severity | Status | Flag Reason / Details |")
+            sections.append("| :--- | :--- | :---: | :--- | :--- |")
+            for a in anomalies:
+                sev = a.get('severity', '').lower()
+                sev_badge = f"🔴 {sev.upper()}" if sev in ["high", "critical"] else (f"🟡 {sev.upper()}" if sev == "medium" else f"🟢 {sev.upper()}")
+                clean_type = a.get('anomaly_type', '').replace('_', ' ').title()
+                sections.append(f"| {a.get('date')} | {clean_type} | {sev_badge} | {a.get('status', '').title()} | {a.get('explanation')} |")
+
+        # 16. Fallback formatting
         else:
-            sections.append("### Workforce Intelligence Overview")
+            items = []
             for k, v in data.items():
                 if isinstance(v, (str, int, float, bool)):
-                    sections.append(f"- **{k.replace('_', ' ').title()}:** {v}")
+                    items.append(f"- **{k.replace('_', ' ').title()}:** {v}")
+                elif isinstance(v, list) and v:
+                    items.append(f"\n#### {k.replace('_', ' ').title()}:")
+                    if isinstance(v[0], dict):
+                        headers = list(v[0].keys())[:6]
+                        items.append("| " + " | ".join(h.replace('_', ' ').title() for h in headers) + " |")
+                        items.append("| " + " | ".join(":---" for _ in headers) + " |")
+                        for item in v[:10]:
+                            row = [str(item.get(h, '')) for h in headers]
+                            items.append("| " + " | ".join(row) + " |")
+                    else:
+                        for item in v[:10]:
+                            items.append(f"- {item}")
+            if items:
+                sections.append("### Workforce Intelligence Overview")
+                sections.extend(items)
+            else:
+                return "No records were found matching your criteria in the verified workforce database."
 
         return "\n".join(sections)
 

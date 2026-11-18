@@ -35,6 +35,9 @@ class AIOrchestrator:
         chain: List[BaseLLMProvider] = []
         primary = settings.LLM_PROVIDER.lower()
 
+        if primary == "mock":
+            return [MockLLMProvider()]
+
         # Add primary provider first if configured
         if primary == "nvidia" and settings.NVIDIA_API_KEY:
             chain.append(NvidiaNIMProvider())

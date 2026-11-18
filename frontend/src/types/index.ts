@@ -114,7 +114,7 @@ export interface AttendanceAnomaly {
   score: number;
   detection_method: 'rule_based' | 'isolation_forest' | 'hybrid';
   explanation: string;
-  status: 'pending' | 'investigating' | 'resolved' | 'dismissed';
+  status: 'pending' | 'investigating' | 'resolved' | 'dismissed' | 'correction_requested' | 'escalated' | 'under_review';
   reviewed_by?: string;
   reviewed_at?: string;
   resolution_notes?: string;
@@ -122,6 +122,88 @@ export interface AttendanceAnomaly {
   employee_code?: string;
   department_name?: string;
   created_at: string;
+}
+
+export interface AttendanceComparison {
+  actual_worked_minutes?: number;
+  expected_worked_minutes?: number;
+  worked_hours_variance_minutes?: number;
+  actual_overtime_minutes?: number;
+  expected_overtime_minutes?: number;
+  actual_late_minutes?: number;
+  shift_grace_period_minutes?: number;
+  actual_break_minutes?: number;
+  expected_break_minutes?: number;
+  clock_in_actual?: string;
+  clock_out_actual?: string;
+  scheduled_start?: string;
+  scheduled_end?: string;
+  shift_name?: string;
+  shift_code?: string;
+}
+
+export interface HistoricalContext {
+  window_days: number;
+  avg_daily_worked_hours: number;
+  overtime_frequency_count: number;
+  late_arrival_frequency_count: number;
+  previous_similar_anomalies_count: number;
+  assigned_shift_name?: string;
+  assigned_shift_start?: string;
+  assigned_shift_end?: string;
+  assigned_shift_grace_minutes?: number;
+}
+
+export interface RecommendedAction {
+  id: string;
+  title: string;
+  action: string;
+  reason: string;
+  expected_outcome: string;
+  required_authorization: string;
+  policy_citation?: string;
+  priority: 'high' | 'medium' | 'low';
+}
+
+export interface AnomalyInvestigationData {
+  anomaly_id: string;
+  employee_id: string;
+  employee_name: string;
+  employee_code: string;
+  department_name: string;
+  anomaly_type: string;
+  detection_date: string;
+  severity: string;
+  score: number;
+  detection_method: string;
+  status: string;
+  why_flagged_explanation: string;
+  confidence_score: number;
+  actual_vs_expected: AttendanceComparison;
+  historical_context: HistoricalContext;
+  recommended_actions: RecommendedAction[];
+  possible_causes: string[];
+}
+
+export interface DashboardTriageItem {
+  anomaly_id: string;
+  employee_name: string;
+  employee_code: string;
+  department_name: string;
+  anomaly_type: string;
+  severity: string;
+  detection_date: string;
+  score: number;
+  status: string;
+  primary_recommendation: RecommendedAction;
+  why_flagged_summary: string;
+}
+
+export interface DashboardRecommendationsData {
+  pending_count: number;
+  high_priority_count: number;
+  repeated_patterns_count: number;
+  prioritized_anomalies: DashboardTriageItem[];
 }
 
 export interface Policy {

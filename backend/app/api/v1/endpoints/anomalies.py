@@ -82,6 +82,42 @@ async def trigger_anomaly_detection(
         "anomalies_detected": count
     }
 
+@router.get("/recommendations/dashboard")
+async def get_dashboard_anomaly_recommendations(
+    limit: int = Query(5, ge=1, le=20),
+    user: User = Depends(get_current_hr_or_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Returns high-priority anomaly recommendations, pending review volume,
+    and repeated pattern warnings for the enterprise dashboard.
+    """
+    from app.anomaly.recommendation_engine import AnomalyRecommendationService
+    return await AnomalyRecommendationService.get_dashboard_recommendations(
+        db=db,
+        organization_id=user.organization_id,
+        limit=limit
+    )
+
+@router.get("/{anomaly_id}/investigate")
+async def investigate_anomaly_details(
+    anomaly_id: str,
+    user: User = Depends(get_current_hr_or_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Deep intelligent investigation for an anomaly flag:
+    Retrieves actual attendance records, compares against scheduled shift parameters,
+    computes 30-day historical context, generates structured explanation,
+    and returns 2-4 authoritative corrective recommendations.
+    """
+    from app.anomaly.recommendation_engine import AnomalyRecommendationService
+    return await AnomalyRecommendationService.investigate_anomaly(
+        db=db,
+        anomaly_id=anomaly_id,
+        organization_id=user.organization_id
+    )
+
 @router.put("/{anomaly_id}/review", response_model=AnomalyResponse)
 async def review_anomaly(
     anomaly_id: str,

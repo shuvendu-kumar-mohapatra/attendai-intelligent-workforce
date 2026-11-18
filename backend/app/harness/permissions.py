@@ -10,6 +10,7 @@ EMPLOYEE_PERSONAL_TOOLS: Set[str] = {
     "get_my_leave_balance",
     "get_my_shifts",
     "get_my_attendance_history",
+    "get_my_anomalies",
     "search_attendance_policy",
 }
 

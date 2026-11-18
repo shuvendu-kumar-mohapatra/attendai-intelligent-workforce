@@ -308,7 +308,7 @@ class AnomalyResponse(BaseModel):
         from_attributes = True
 
 class AnomalyReviewRequest(BaseModel):
-    status: str # resolved, dismissed
+    status: str # resolved, dismissed, correction_requested, escalated, under_review
     resolution_notes: str
 
 # ----------------- Policy -----------------
