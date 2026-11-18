@@ -2,6 +2,7 @@
 ### Intelligent Workforce. Smarter Decisions.
 
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-attendai--intelligent--workforce.onrender.com-blue?style=for-the-badge&logo=render)](https://attendai-intelligent-workforce.onrender.com/)
+[![Demo Video](https://img.shields.io/badge/Demo%20Video-demo%2Fdemo.mp4-E50914?style=for-the-badge&logo=youtube&logoColor=white)](#-product-demonstration-video)
 
 🌐 **Live Production Application**: [https://attendai-intelligent-workforce.onrender.com/](https://attendai-intelligent-workforce.onrender.com/)
 
@@ -18,7 +19,22 @@ AttendAI is a production-grade, AI-powered workforce time-and-attendance managem
 
 ---
 
+## 🎬 Product Demonstration Video
+
+Watch the complete AttendAI walkthrough demonstrating employee clocking, supervisor anomaly triage, grounded AI conversational assistant, policy indexing reader, and custom report builder:
+
+<div align="center">
+  <video src="demo/demo.mp4" width="100%" controls title="AttendAI Platform Demonstration Video">
+    Your browser does not support the video tag. You can view or download the video directly at <a href="demo/demo.mp4">demo/demo.mp4</a>.
+  </video>
+</div>
+
+> 📽️ **Direct Link / Download**: [Watch AttendAI Product Demonstration (`demo/demo.mp4`)](demo/demo.mp4)
+
+---
+
 ## Table of Contents
+- [🎬 Product Demonstration Video](#-product-demonstration-video)
 - [1. Problem Statement](#1-problem-statement)
 - [2. Motivation and Objectives](#2-motivation-and-objectives)
 - [3. Key Features](#3-key-features)
@@ -267,6 +283,8 @@ For complete reporting documentation, see [Reporting & Exports Documentation](do
 ---
 
 ## 12. Visual Walkthrough & Screenshots
+
+> 💡 **Watch the Live Walkthrough**: A complete video demonstration of all interfaces and features is available at [demo/demo.mp4](demo/demo.mp4) (see [Platform Demonstration Video](#-product-demonstration-video)).
 
 ```
 +---------------------------------------------------------------------------------------+
