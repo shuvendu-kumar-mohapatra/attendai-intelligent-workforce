@@ -27,13 +27,12 @@ Watch the complete AttendAI walkthrough demonstrating employee clocking, supervi
   <a href="https://drive.google.com/file/d/1SdGo7-WEPQqEtfrrrEji8MuGDp20yDyM/view?usp=sharing" target="_blank" rel="noopener noreferrer" title="AttendAI Product Demonstration Video">
     <img src="demo/demo-thumbnail.png" alt="AttendAI Product Demonstration Video" width="820" style="max-width: 100%; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.18);" />
   </a>
-  <p><em>📁 Repository Video File: <a href="demo/demo.mp4"><code>demo/demo.mp4</code></a> (10 min &bull; Full HD 1080p)</em></p>
+  <p><em>📁 Video File: <a href="demo/demo.mp4"><code>demo/demo.mp4</code></a> (10 min &bull; Full HD 1080p)</em></p>
 </div>
 
 ---
 
 ## Table of Contents
-- [🎬 Product Demonstration Video](#-product-demonstration-video)
 - [1. Problem Statement](#1-problem-statement)
 - [2. Motivation and Objectives](#2-motivation-and-objectives)
 - [3. Key Features](#3-key-features)
