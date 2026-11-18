@@ -19,7 +19,7 @@ import {
   RefreshCw,
   FileCheck
 } from 'lucide-react';
-import { api } from '../services/api';
+import { api, API_BASE } from '../services/api';
 import { Policy, PolicyChunk } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { downloadFile } from '../utils/download';
@@ -103,12 +103,8 @@ export const Policies: React.FC = () => {
     try {
       const res = await api.get(`/policies/${id}/content`);
       setDocContent(res.data);
-      // If it's PDF and has view_url, default to embed viewer; if DOCX or TXT, default to structured text
-      if (res.data.format === 'pdf') {
-        setReaderViewMode('embed');
-      } else {
-        setReaderViewMode('text');
-      }
+      // Default to structured text reader for all documents for guaranteed instant rendering across all environments
+      setReaderViewMode('text');
     } catch (e: any) {
       showToast(e.response?.data?.detail || 'Failed to retrieve document content.', true);
     } finally {
@@ -393,10 +389,27 @@ export const Policies: React.FC = () => {
                         {p.chunk_count || 1} sections
                       </td>
                       <td className="py-3 px-4">
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-success border border-emerald-200 capitalize">
-                          <CheckCircle className="w-3 h-3" />
-                          <span>{p.status || 'Active'}</span>
-                        </span>
+                        {p.status === 'active' || !p.status ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-success border border-emerald-200 capitalize">
+                            <CheckCircle className="w-3 h-3" />
+                            <span>Active</span>
+                          </span>
+                        ) : p.status === 'processing' ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-50 text-primary border border-blue-200 capitalize">
+                            <RefreshCw className="w-3 h-3 animate-spin" />
+                            <span>Processing</span>
+                          </span>
+                        ) : p.status === 'empty' ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200 capitalize">
+                            <AlertCircle className="w-3 h-3" />
+                            <span>Empty</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-50 text-danger border border-rose-200 capitalize">
+                            <AlertCircle className="w-3 h-3" />
+                            <span>Failed</span>
+                          </span>
+                        )}
                       </td>
                       <td className="py-3 px-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
@@ -573,11 +586,20 @@ export const Policies: React.FC = () => {
             <div className="flex-1 overflow-y-auto bg-slate-100/60 p-4 sm:p-6">
               {/* PDF EMBED VIEWER */}
               {readerViewMode === 'embed' && docContent.format === 'pdf' ? (
-                <div className="w-full h-full min-h-[500px] flex flex-col items-center justify-center bg-slate-200/50 rounded-xl overflow-hidden shadow-inner border border-border">
+                <div className="w-full h-full min-h-[500px] flex flex-col bg-slate-200/50 rounded-xl overflow-hidden shadow-inner border border-border">
+                  <div className="flex items-center justify-between px-4 py-2 bg-slate-100 border-b border-border text-xs text-secondary flex-shrink-0">
+                    <span>Viewing official PDF preview. If your browser blocks embedded PDFs:</span>
+                    <button
+                      onClick={() => setReaderViewMode('text')}
+                      className="text-primary font-semibold hover:underline cursor-pointer ml-2"
+                    >
+                      Switch to Structured Text Reader &rarr;
+                    </button>
+                  </div>
                   <iframe
-                    src={`${docContent.view_url}?token=${encodeURIComponent(token)}#zoom=${zoomLevel}`}
+                    src={`${API_BASE}/policies/${docContent.id}/view?token=${encodeURIComponent(token)}#zoom=${zoomLevel}`}
                     title={docContent.title}
-                    className="w-full h-full min-h-[600px] border-0 bg-white"
+                    className="w-full flex-1 min-h-[600px] border-0 bg-white"
                   />
                 </div>
               ) : (
@@ -634,7 +656,26 @@ export const Policies: React.FC = () => {
                           </div>
                         );
                       }
-                      // Regular paragraph or page block
+                      if (el.type === 'page') {
+                        return (
+                          <div key={idx} className="border border-slate-200 rounded-xl p-5 bg-slate-50/50 space-y-3">
+                            <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                              <span className="px-2 py-0.5 bg-primary/10 text-primary font-semibold rounded text-[11px]">
+                                Page {el.page_number || idx + 1}
+                              </span>
+                              {el.section && (
+                                <span className="text-xs font-bold text-slate-800">
+                                  {el.section}
+                                </span>
+                              )}
+                            </div>
+                            <p className="whitespace-pre-wrap text-xs text-slate-700 leading-relaxed font-sans">
+                              {el.text}
+                            </p>
+                          </div>
+                        );
+                      }
+                      // Regular paragraph
                       return (
                         <div key={idx} className="space-y-1.5 text-xs text-slate-700 leading-relaxed font-sans">
                           {el.section && (

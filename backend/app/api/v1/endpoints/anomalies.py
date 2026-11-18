@@ -42,8 +42,11 @@ async def list_anomalies(
     stmt = stmt.order_by(desc(AttendanceAnomaly.created_at)).offset(skip).limit(limit)
     res = await db.execute(stmt)
 
+    from app.anomaly.recommendation_engine.action_registry import ActionRegistry
+
     output = []
     for anom, emp, dept in res.all():
+        suggested = ActionRegistry.get_short_recommendation_summary(anom.anomaly_type)
         output.append({
             "id": anom.id,
             "organization_id": anom.organization_id,
@@ -62,7 +65,10 @@ async def list_anomalies(
             "created_at": anom.created_at,
             "employee_name": f"{emp.first_name} {emp.last_name}",
             "employee_code": emp.employee_code,
-            "department_name": dept.name if dept else "General"
+            "department_name": dept.name if dept else "General",
+            "suggested_action": suggested,
+            "recommendation_priority": anom.severity,
+            "recommendation_source": anom.detection_method or "rule_based"
         })
     return output
 
@@ -145,6 +151,7 @@ async def review_anomaly(
 
     emp = (await db.execute(select(Employee).where(Employee.id == anom.employee_id))).scalars().first()
     dept = (await db.execute(select(Department).where(Department.id == emp.department_id))).scalars().first() if emp and emp.department_id else None
+    suggested = ActionRegistry.get_short_recommendation_summary(anom.anomaly_type)
 
     return {
         "id": anom.id,
@@ -164,5 +171,8 @@ async def review_anomaly(
         "created_at": anom.created_at,
         "employee_name": f"{emp.first_name} {emp.last_name}" if emp else None,
         "employee_code": emp.employee_code if emp else None,
-        "department_name": dept.name if dept else "General"
+        "department_name": dept.name if dept else "General",
+        "suggested_action": suggested,
+        "recommendation_priority": anom.severity,
+        "recommendation_source": anom.detection_method or "rule_based"
     }

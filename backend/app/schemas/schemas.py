@@ -303,6 +303,9 @@ class AnomalyResponse(BaseModel):
     employee_name: Optional[str] = None
     employee_code: Optional[str] = None
     department_name: Optional[str] = None
+    suggested_action: Optional[str] = None
+    recommendation_priority: Optional[str] = None
+    recommendation_source: Optional[str] = None
 
     class Config:
         from_attributes = True

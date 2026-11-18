@@ -387,6 +387,7 @@ export const Anomalies: React.FC = () => {
                 <th className="py-3 px-4">Method</th>
                 <th className="py-3 px-4">Score</th>
                 <th className="py-3 px-4">Explanation</th>
+                <th className="py-3 px-4">Suggested Action</th>
                 <th className="py-3 px-4">Status</th>
                 <th className="py-3 px-4 text-right">Action</th>
               </tr>
@@ -394,13 +395,13 @@ export const Anomalies: React.FC = () => {
             <tbody className="divide-y divide-border font-medium">
               {loading ? (
                 <tr>
-                  <td colSpan={9} className="text-center py-10 text-secondary">
+                  <td colSpan={10} className="text-center py-10 text-secondary">
                     Loading anomaly queue...
                   </td>
                 </tr>
               ) : anomalies.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="text-center py-10 text-secondary">
+                  <td colSpan={10} className="text-center py-10 text-secondary">
                     No anomalies found matching current filters.
                   </td>
                 </tr>
@@ -446,6 +447,24 @@ export const Anomalies: React.FC = () => {
                     <td className="py-3 px-4 font-mono text-dark">{anom.score}</td>
                     <td className="py-3 px-4 text-secondary max-w-sm truncate" title={anom.explanation}>
                       {anom.explanation}
+                    </td>
+                    <td className="py-3 px-4 max-w-xs">
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => openInvestigationModal(anom.id)}
+                          className="group inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium bg-indigo-50/80 hover:bg-indigo-100 text-indigo-700 hover:text-indigo-900 border border-indigo-200/80 transition-all text-left shadow-2xs cursor-pointer max-w-full"
+                          title={anom.suggested_action ? `${anom.suggested_action} (Click to View Suggestion)` : 'No recommendation available – manual review required'}
+                        >
+                          <Sparkles className="w-3.5 h-3.5 text-indigo-600 flex-shrink-0 group-hover:scale-110 transition-transform" />
+                          <span className="truncate">
+                            {anom.suggested_action || 'No recommendation available – manual review required'}
+                          </span>
+                          <span className="text-[10px] text-indigo-600 font-semibold uppercase flex-shrink-0 ml-auto pl-1 group-hover:underline">
+                            View
+                          </span>
+                        </button>
+                      </div>
                     </td>
                     <td className="py-3 px-4">
                       <span

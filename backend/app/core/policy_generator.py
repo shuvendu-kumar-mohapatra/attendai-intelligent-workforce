@@ -285,14 +285,22 @@ async def seed_policies_if_needed(db: AsyncSession, org_id: Optional[str] = None
             file_path = file_map.get(title) or os.path.abspath(os.path.join(upload_dir, filename))
             file_size = os.path.getsize(file_path) if os.path.exists(file_path) else 10240
 
-            # Check if this policy already exists
+            # Check if this policy already exists (deduplicating if multiple exist)
             stmt = select(Policy).where(
                 Policy.organization_id == oid,
                 Policy.title == title
-            )
-            existing_policy = (await db.execute(stmt)).scalars().first()
+            ).order_by(Policy.created_at.asc())
+            existing_policies = (await db.execute(stmt)).scalars().all()
 
-            if existing_policy:
+            if existing_policies:
+                canonical_policy = existing_policies[0]
+                # Clean up any redundant duplicate policy rows
+                for dup in existing_policies[1:]:
+                    await db.execute(delete(PolicyChunk).where(PolicyChunk.policy_id == dup.id))
+                    await db.delete(dup)
+                    logger.info(f"Deduplicated excess policy row {dup.id} for '{title}'")
+
+                existing_policy = canonical_policy
                 # Ensure physical path and size are accurate
                 updated = False
                 if not existing_policy.file_path or not os.path.exists(existing_policy.file_path):

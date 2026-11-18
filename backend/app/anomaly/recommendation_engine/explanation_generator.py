@@ -129,11 +129,15 @@ class ExplanationGenerator:
             )
 
             # Lazy import to avoid circular dependencies
+            import asyncio
             from app.harness.orchestrator import ai_orchestrator
             provider = ai_orchestrator.get_provider()
-            resp = await provider.generate_response(
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.1
+            resp = await asyncio.wait_for(
+                provider.generate_response(
+                    messages=[{"role": "user", "content": prompt}],
+                    temperature=0.1
+                ),
+                timeout=3.0
             )
             llm_text = (resp.get("content") or "").strip()
             if llm_text and len(llm_text) > 20 and not llm_text.startswith("{"):

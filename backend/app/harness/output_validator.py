@@ -46,7 +46,7 @@ class OutputValidator:
             # Do not show database citations as a substitute for actual results when no records exist
             has_records = False
             for k in ["anomalies", "my_anomalies", "records", "recent_records", "overtime_records",
-                      "late_records", "late_employees", "top_overtime_employees", "absent_employees",
+                      "late_records", "late_employees", "late_arrivals", "top_overtime_employees", "absent_employees",
                       "flagged_employees", "leave_balances", "shifts", "history", "matches", "departments", "employees"]:
                 if k in output:
                     v = output[k]
@@ -54,7 +54,7 @@ class OutputValidator:
                         has_records = True
                         break
             if not has_records:
-                if any(output.get(c, 0) > 0 for c in ["total_count", "total_shifts_completed", "total_worked_hours", "total_late_count"]):
+                if any(output.get(c, 0) > 0 for c in ["total_count", "count", "total_shifts_completed", "total_worked_hours", "total_late_count"]):
                     has_records = True
 
             if not has_records:

@@ -58,10 +58,11 @@ def resolve_safe_file_path(file_path: Optional[str]) -> Optional[str]:
     """
     Safely resolves a file path on disk, preventing directory traversal and handling relative paths.
     Normalizes path separators to handle Windows and Linux paths interchangeably.
+    Searches upload dir, working directory uploads, and bundled sample_documents.
     """
     if not file_path:
         return None
-    if os.path.exists(file_path):
+    if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
         return os.path.abspath(file_path)
 
     # Normalize backslashes from Windows paths
@@ -71,13 +72,38 @@ def resolve_safe_file_path(file_path: Optional[str]) -> Optional[str]:
 
     # Check in configured UPLOAD_DIR
     alt_path = os.path.abspath(os.path.join(settings.UPLOAD_DIR, basename))
-    if os.path.exists(alt_path):
+    if os.path.exists(alt_path) and os.path.getsize(alt_path) > 0:
         return alt_path
 
     # Check relative to working directory uploads
     root_alt = os.path.abspath(os.path.join(os.getcwd(), "uploads", basename))
-    if os.path.exists(root_alt):
+    if os.path.exists(root_alt) and os.path.getsize(root_alt) > 0:
         return root_alt
+
+    # Check sample_documents directory
+    sample_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "sample_documents"))
+    sample_path = os.path.join(sample_dir, basename)
+    if os.path.exists(sample_path) and os.path.getsize(sample_path) > 0:
+        # Copy to uploads for persistent cache
+        try:
+            os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
+            shutil.copyfile(sample_path, alt_path)
+            return alt_path
+        except Exception:
+            return sample_path
+
+    # Check if filename has UUID prefix (e.g. 1234_Global_Attendance_Policy.pdf)
+    import re
+    clean_name = re.sub(r'^[0-9a-fA-F\-]{36}_', '', basename)
+    if clean_name != basename:
+        sample_clean = os.path.join(sample_dir, clean_name)
+        if os.path.exists(sample_clean) and os.path.getsize(sample_clean) > 0:
+            try:
+                os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
+                shutil.copyfile(sample_clean, alt_path)
+                return alt_path
+            except Exception:
+                return sample_clean
 
     return None
 
@@ -296,15 +322,28 @@ async def get_policy_content(
         try:
             pdf_doc = fitz.open(real_path)
             total_pages = len(pdf_doc)
+            extracted_pages = []
             for page_idx in range(len(pdf_doc)):
                 page = pdf_doc[page_idx]
                 text = page.get_text().strip()
-                elements.append({
+                page_chunks = [c for c in chunks if c.page_number == (page_idx + 1)]
+                sections = [c.section for c in page_chunks if c.section]
+                chunk_text = "\n\n".join([c.content for c in page_chunks]) if page_chunks else ""
+                combined_text = text if text else chunk_text
+                extracted_pages.append({
                     "type": "page",
                     "page_number": page_idx + 1,
-                    "text": text
+                    "section": ", ".join(sections) if sections else f"Page {page_idx + 1}",
+                    "text": combined_text
                 })
             pdf_doc.close()
+            if any(p["text"] for p in extracted_pages):
+                elements = extracted_pages
+            else:
+                elements = [
+                    {"type": "page", "page_number": c.page_number, "section": c.section, "text": c.content}
+                    for c in chunks
+                ]
         except Exception:
             # Fallback to chunks
             elements = [

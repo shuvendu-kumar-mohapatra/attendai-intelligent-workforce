@@ -81,6 +81,21 @@ class AnomalyRecommendationService:
             policy_citation=policy_citation
         )
 
+        # Determine possible causes
+        causes = []
+        if comparison.actual_overtime_minutes and comparison.actual_overtime_minutes > 0:
+            causes.append(f"Extended shift duration logged: {comparison.actual_overtime_minutes}m overtime")
+        if comparison.actual_late_minutes and comparison.actual_late_minutes > 0:
+            causes.append(f"Arrival past grace period: {comparison.actual_late_minutes}m late")
+        if comparison.actual_break_minutes and comparison.actual_break_minutes > 60:
+            causes.append(f"Break duration {comparison.actual_break_minutes}m exceeds standard 60m allowance")
+        if not comparison.clock_out_time:
+            causes.append("Missing departure timestamp on shift closure")
+        if not causes:
+            causes.append(f"Feature deviation detected by {anomaly.detection_method.replace('_', ' ')}")
+
+        suggested = ActionRegistry.get_short_recommendation_summary(anomaly.anomaly_type)
+
         return AnomalyInvestigationResponse(
             anomaly_id=anomaly.id,
             employee_id=emp.id,
@@ -93,9 +108,16 @@ class AnomalyRecommendationService:
             score=round(anomaly.score, 2),
             detection_method=anomaly.detection_method,
             explanation=explanation,
+            why_flagged_explanation=explanation,
+            confidence_score=0.92,
             comparison=comparison,
+            actual_vs_expected=comparison,
             historical_context=history,
             recommendations=recommendations,
+            recommended_actions=recommendations,
+            suggested_action=suggested,
+            possible_causes=causes,
+            rule_references=[policy_citation] if policy_citation else [],
             available_resolutions=cls.AVAILABLE_RESOLUTIONS,
             current_status=anomaly.status,
             current_resolution_notes=anomaly.resolution_notes

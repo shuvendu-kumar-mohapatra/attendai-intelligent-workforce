@@ -56,9 +56,16 @@ class AnomalyInvestigationResponse(BaseModel):
     score: float
     detection_method: str
     explanation: str
+    why_flagged_explanation: Optional[str] = None
+    confidence_score: float = 0.92
     comparison: AttendanceComparison
+    actual_vs_expected: Optional[AttendanceComparison] = None
     historical_context: HistoricalContext
     recommendations: List[RecommendedAction]
+    recommended_actions: Optional[List[RecommendedAction]] = None
+    suggested_action: Optional[str] = None
+    possible_causes: List[str] = Field(default_factory=list)
+    rule_references: List[str] = Field(default_factory=list)
     available_resolutions: List[Dict[str, str]]
     current_status: str
     current_resolution_notes: Optional[str] = None

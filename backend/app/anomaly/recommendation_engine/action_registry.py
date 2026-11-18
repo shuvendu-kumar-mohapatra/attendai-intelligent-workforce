@@ -37,6 +37,31 @@ class ActionRegistry:
             return cls._get_multivariate_outlier_actions(comparison, history, policy_citation)
 
     @classmethod
+    def get_short_recommendation_summary(cls, anomaly_type: str) -> str:
+        """
+        Returns a concise, standardized one-line corrective action for dashboard tables and cards.
+        Deterministic, compliant, and requires zero LLM roundtrips.
+        """
+        norm_type = (anomaly_type or "").lower().strip()
+        if norm_type in ["unusual_working_hours", "irregular_hours", "irregular_working_hours"]:
+            return "Verify shift duration and overtime approval"
+        elif norm_type in ["excessive_overtime", "unusually_long_shift"]:
+            return "Review overtime authorization"
+        elif norm_type in ["repeated_late_arrival", "late_arrival", "repeated_late", "late_arrivals"]:
+            return "Review shift timing and arrival history"
+        elif norm_type in ["missing_clock_out", "missing_punch", "unclosed_shift", "missing_punch_out"]:
+            return "Request employee/supervisor verification"
+        elif norm_type in ["abnormal_break_duration", "unusual_break", "extended_break"]:
+            return "Verify break approval and policy"
+        elif norm_type in ["duplicate_attendance", "duplicate_punch", "multiple_clock_in"]:
+            return "Review duplicate punch records"
+        elif norm_type in ["unusual_absence_frequency", "chronic_absenteeism", "unexcused_absence"]:
+            return "Cross-check approved leave records"
+        elif "isolation" in norm_type or "multivariate" in norm_type or "outlier" in norm_type:
+            return "Review multivariate attendance pattern and supervisor verification"
+        return "Review attendance record and shift configuration"
+
+    @classmethod
     def _get_overtime_actions(
         cls, comp: AttendanceComparison, hist: HistoricalContext, citation: Optional[str]
     ) -> List[RecommendedAction]:

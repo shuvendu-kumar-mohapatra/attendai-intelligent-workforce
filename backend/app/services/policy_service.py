@@ -9,40 +9,69 @@ from app.core.exceptions import ValidationException, NotFoundException
 class PolicyService:
     @staticmethod
     def extract_text_from_pdf(file_path: str) -> List[Dict[str, Any]]:
-        """Extract pages from PDF using PyMuPDF."""
+        """Extract pages from PDF using PyMuPDF preserving layout, page numbers and section headers."""
         pages = []
+        if not file_path or not os.path.exists(file_path):
+            raise ValidationException(f"PDF file not found at path: {file_path}")
         try:
             import pymupdf as fitz
             doc = fitz.open(file_path)
             for page_num in range(len(doc)):
                 page = doc[page_num]
-                text_content = page.get_text()
-                if text_content.strip():
+                text_content = page.get_text("text")
+                if text_content and text_content.strip():
+                    # Attempt to detect section header from first non-empty line
+                    lines = [l.strip() for l in text_content.split("\n") if l.strip()]
+                    first_line = lines[0] if lines else f"Page {page_num + 1}"
+                    section_title = first_line[:80] if len(first_line) > 3 else f"Section {page_num + 1}"
                     pages.append({
                         "page_number": page_num + 1,
+                        "section": section_title,
                         "content": text_content.strip()
                     })
             doc.close()
+        except ValidationException:
+            raise
         except Exception as e:
             raise ValidationException(f"Failed to extract text from PDF: {str(e)}")
         return pages
 
     @staticmethod
     def extract_text_from_docx(file_path: str) -> List[Dict[str, Any]]:
-        """Extract sections from DOCX using python-docx."""
+        """Extract structured sections and tables from DOCX using python-docx."""
         pages = []
+        if not file_path or not os.path.exists(file_path):
+            raise ValidationException(f"DOCX file not found at path: {file_path}")
         try:
             import docx
             doc = docx.Document(file_path)
-            full_text = "\n".join([p.text for p in doc.paragraphs if p.text.strip()])
+            body_parts = []
+            for p in doc.paragraphs:
+                p_text = p.text.strip()
+                if p_text:
+                    body_parts.append(p_text)
+
+            # Include text from all tables
+            for t in doc.tables:
+                for row in t.rows:
+                    row_cells = [cell.text.strip() for cell in row.cells if cell.text.strip()]
+                    if row_cells:
+                        body_parts.append(" | ".join(row_cells))
+
+            full_text = "\n\n".join(body_parts)
             if full_text.strip():
                 # Split roughly every 1500 chars to simulate pages/sections
                 chunks = [full_text[i:i+1500] for i in range(0, len(full_text), 1500)]
                 for idx, c in enumerate(chunks):
+                    lines = [l.strip() for l in c.split("\n") if l.strip()]
+                    section_title = lines[0][:80] if lines else f"Section {idx + 1}"
                     pages.append({
                         "page_number": idx + 1,
+                        "section": section_title,
                         "content": c.strip()
                     })
+        except ValidationException:
+            raise
         except Exception as e:
             raise ValidationException(f"Failed to extract text from DOCX: {str(e)}")
         return pages
@@ -57,16 +86,34 @@ class PolicyService:
         file_size: int
     ) -> Policy:
         ext = os.path.splitext(file_path)[1].lower()
-        if ext == ".pdf":
-            extracted = PolicyService.extract_text_from_pdf(file_path)
-        elif ext in [".docx", ".doc"]:
-            extracted = PolicyService.extract_text_from_docx(file_path)
-        elif ext == ".txt":
-            with open(file_path, "r", encoding="utf-8") as f:
-                content = f.read()
-            extracted = [{"page_number": 1, "content": content}]
-        else:
-            raise ValidationException(f"Unsupported file format: {ext}. Only PDF, DOCX, and TXT are supported.")
+        try:
+            if ext == ".pdf":
+                extracted = PolicyService.extract_text_from_pdf(file_path)
+            elif ext in [".docx", ".doc"]:
+                extracted = PolicyService.extract_text_from_docx(file_path)
+            elif ext == ".txt":
+                with open(file_path, "r", encoding="utf-8") as f:
+                    content = f.read()
+                extracted = [{"page_number": 1, "section": "General", "content": content.strip()}] if content.strip() else []
+            else:
+                raise ValidationException(f"Unsupported file format: {ext}. Only PDF, DOCX, and TXT are supported.")
+        except Exception as ex:
+            # Transactionally store failed policy with clear failed status
+            failed_policy = Policy(
+                organization_id=organization_id,
+                title=title,
+                category=category,
+                file_path=file_path,
+                file_size=file_size,
+                status="failed"
+            )
+            db.add(failed_policy)
+            await db.commit()
+            await db.refresh(failed_policy)
+            raise ValidationException(f"Document ingestion failed: {str(ex)}")
+
+        # Status is active if text was extracted, empty if 0 text extracted
+        doc_status = "active" if extracted and any(item.get("content", "").strip() for item in extracted) else "empty"
 
         policy = Policy(
             organization_id=organization_id,
@@ -74,21 +121,23 @@ class PolicyService:
             category=category,
             file_path=file_path,
             file_size=file_size,
-            status="active"
+            status=doc_status
         )
         db.add(policy)
         await db.flush()
 
         for item in extracted:
-            chunk = PolicyChunk(
-                policy_id=policy.id,
-                title=title,
-                section=f"Section {item['page_number']}",
-                page_number=item["page_number"],
-                content=item["content"],
-                token_count=len(item["content"].split())
-            )
-            db.add(chunk)
+            content = item["content"].strip()
+            if content:
+                chunk = PolicyChunk(
+                    policy_id=policy.id,
+                    title=title,
+                    section=item.get("section") or f"Section {item['page_number']}",
+                    page_number=item["page_number"],
+                    content=content,
+                    token_count=len(content.split())
+                )
+                db.add(chunk)
 
         await db.commit()
         await db.refresh(policy)
@@ -125,21 +174,46 @@ class PolicyService:
         if conditions:
             stmt = stmt.where(or_(*conditions))
 
-        stmt = stmt.limit(limit)
+        # Fetch candidates to rank by relevance
+        stmt = stmt.limit(max(limit * 3, 20))
         results = await db.execute(stmt)
         
-        items = []
+        raw_items = []
         for chunk, policy in results.all():
-            items.append({
-                "id": chunk.id,
-                "policy_id": policy.id,
-                "title": policy.title,
-                "category": policy.category,
-                "section": chunk.section,
-                "page_number": chunk.page_number,
-                "content": chunk.content,
-                "citation": f"{policy.title} (Page {chunk.page_number}, {chunk.section})"
-            })
+            p_title = policy.title.lower()
+            c_content = chunk.content.lower()
+            q_lower = query.lower()
+
+            # Relevance scoring
+            score = 0
+            if q_lower in p_title:
+                score += 100
+            if q_lower in c_content:
+                score += 50
+            if all(t in c_content or t in p_title for t in terms):
+                score += 30
+            for t in terms:
+                if t in p_title:
+                    score += 15
+                if t in c_content:
+                    score += 5
+
+            raw_items.append((
+                score,
+                {
+                    "id": chunk.id,
+                    "policy_id": policy.id,
+                    "title": policy.title,
+                    "category": policy.category,
+                    "section": chunk.section,
+                    "page_number": chunk.page_number,
+                    "content": chunk.content,
+                    "citation": f"{policy.title} (Page {chunk.page_number}, {chunk.section})"
+                }
+            ))
+
+        raw_items.sort(key=lambda x: x[0], reverse=True)
+        items = [item for _, item in raw_items[:limit]]
 
         # If no items found, ensure all standard policies are seeded and re-query once
         if not items:

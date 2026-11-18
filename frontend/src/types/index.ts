@@ -121,6 +121,9 @@ export interface AttendanceAnomaly {
   employee_name?: string;
   employee_code?: string;
   department_name?: string;
+  suggested_action?: string;
+  recommendation_priority?: string;
+  recommendation_source?: string;
   created_at: string;
 }
 
@@ -213,7 +216,7 @@ export interface Policy {
   category: string;
   file_path?: string;
   file_size: number;
-  status: 'processing' | 'active' | 'failed';
+  status: 'processing' | 'active' | 'failed' | 'empty';
   chunk_count: number;
   created_at: string;
 }
