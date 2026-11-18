@@ -88,3 +88,6 @@ class DashboardRecommendationsResponse(BaseModel):
     high_priority_anomalies_count: int
     repeated_patterns_count: int
     top_recommendations: List[Dict[str, Any]]
+    pending_count: Optional[int] = None
+    high_priority_count: Optional[int] = None
+    prioritized_anomalies: Optional[List[Dict[str, Any]]] = None

@@ -67,9 +67,10 @@ export const Anomalies: React.FC = () => {
       if (severityFilter) params.severity = severityFilter;
       if (statusFilter) params.status_filter = statusFilter;
       const res = await api.get('/anomalies', { params });
-      setAnomalies(res.data);
+      setAnomalies(Array.isArray(res.data) ? res.data : []);
     } catch (e) {
       console.error('Failed to load anomalies:', e);
+      setAnomalies([]);
     } finally {
       setLoading(false);
     }
@@ -79,9 +80,44 @@ export const Anomalies: React.FC = () => {
     setLoadingDashboard(true);
     try {
       const res = await api.get('/anomalies/recommendations/dashboard');
-      setDashboardData(res.data);
+      const raw = res.data || {};
+      const rawList = Array.isArray(raw.prioritized_anomalies)
+        ? raw.prioritized_anomalies
+        : Array.isArray(raw.top_recommendations)
+        ? raw.top_recommendations
+        : [];
+
+      const normalizedList: DashboardTriageItem[] = rawList.map((item: any) => ({
+        anomaly_id: item.anomaly_id,
+        employee_name: item.employee_name,
+        employee_code: item.employee_code,
+        department_name: item.department_name || item.department || 'General Operations',
+        anomaly_type: item.anomaly_type,
+        severity: item.severity,
+        detection_date: item.detection_date || item.date || item.detection_date,
+        score: item.score,
+        status: item.status || 'pending',
+        primary_recommendation: item.primary_recommendation || (item.recommended_action_title ? {
+          title: item.recommended_action_title,
+          action: item.recommended_action,
+          required_authorization: item.required_authorization || 'HR Manager',
+        } : undefined),
+      }));
+
+      setDashboardData({
+        pending_count: raw.pending_count ?? raw.pending_investigations_count ?? 0,
+        high_priority_count: raw.high_priority_count ?? raw.high_priority_anomalies_count ?? 0,
+        repeated_patterns_count: raw.repeated_patterns_count ?? 0,
+        prioritized_anomalies: normalizedList,
+      });
     } catch (e) {
       console.error('Failed to load anomaly recommendations:', e);
+      setDashboardData({
+        pending_count: 0,
+        high_priority_count: 0,
+        repeated_patterns_count: 0,
+        prioritized_anomalies: [],
+      });
     } finally {
       setLoadingDashboard(false);
     }
@@ -188,12 +224,14 @@ export const Anomalies: React.FC = () => {
     }
   };
 
-  const totalCount = anomalies.length;
-  const criticalCount = anomalies.filter((a) => a.severity === 'critical').length;
-  const pendingCount = anomalies.filter((a) => a.status === 'pending').length;
-  const resolvedCount = anomalies.filter(
-    (a) => a.status === 'resolved' || a.status === 'dismissed' || a.status === 'correction_requested'
-  ).length;
+  const totalCount = Array.isArray(anomalies) ? anomalies.length : 0;
+  const criticalCount = Array.isArray(anomalies) ? anomalies.filter((a) => a.severity === 'critical').length : 0;
+  const pendingCount = Array.isArray(anomalies) ? anomalies.filter((a) => a.status === 'pending').length : 0;
+  const resolvedCount = Array.isArray(anomalies)
+    ? anomalies.filter(
+        (a) => a.status === 'resolved' || a.status === 'dismissed' || a.status === 'correction_requested'
+      ).length
+    : 0;
 
   return (
     <div className="space-y-6">
@@ -303,7 +341,7 @@ export const Anomalies: React.FC = () => {
             <div className="w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
             <span>Synthesizing intelligent recommendations...</span>
           </div>
-        ) : !dashboardData || dashboardData.prioritized_anomalies.length === 0 ? (
+        ) : !dashboardData || !dashboardData.prioritized_anomalies || dashboardData.prioritized_anomalies.length === 0 ? (
           <div className="p-4 bg-white/80 border border-slate-200/80 rounded-xl text-xs text-secondary text-center">
             No high-priority anomaly triage items pending. All recent workforce patterns align with operational baselines.
           </div>
@@ -425,7 +463,7 @@ export const Anomalies: React.FC = () => {
                     Loading anomaly queue...
                   </td>
                 </tr>
-              ) : anomalies.length === 0 ? (
+              ) : !Array.isArray(anomalies) || anomalies.length === 0 ? (
                 <tr>
                   <td colSpan={10} className="text-center py-10 text-secondary">
                     No anomalies found matching current filters.

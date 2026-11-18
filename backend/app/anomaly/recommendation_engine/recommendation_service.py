@@ -538,9 +538,31 @@ class AnomalyRecommendationService:
                 "confidence_score": top_action.confidence_score if top_action else 0.85
             })
 
+        prioritized = []
+        for t in top_recs:
+            prioritized.append({
+                "anomaly_id": t["anomaly_id"],
+                "employee_name": t["employee_name"],
+                "employee_code": t["employee_code"],
+                "department_name": t["department"],
+                "anomaly_type": t["anomaly_type"],
+                "detection_date": t["date"],
+                "severity": t["severity"],
+                "score": t["score"],
+                "status": "pending",
+                "primary_recommendation": {
+                    "title": t["recommended_action_title"],
+                    "action": t["recommended_action"],
+                    "required_authorization": t["required_authorization"]
+                }
+            })
+
         return DashboardRecommendationsResponse(
             pending_investigations_count=pending_count,
             high_priority_anomalies_count=high_pri_count,
             repeated_patterns_count=repeated_count,
-            top_recommendations=top_recs
+            top_recommendations=top_recs,
+            pending_count=pending_count,
+            high_priority_count=high_pri_count,
+            prioritized_anomalies=prioritized
         )
