@@ -9,6 +9,8 @@ import {
   ShieldAlert,
   BrainCircuit,
   Sparkles,
+  Lightbulb,
+  BookOpen,
   Clock,
   Calendar,
   User,
@@ -26,6 +28,7 @@ import { api } from '../services/api';
 import {
   AttendanceAnomaly,
   AnomalyInvestigationData,
+  AIRecommendedActionDetail,
   DashboardRecommendationsData,
   DashboardTriageItem,
   RecommendedAction
@@ -113,8 +116,10 @@ export const Anomalies: React.FC = () => {
     try {
       const res = await api.get(`/anomalies/${anomalyId}/investigate`);
       setInvestigationData(res.data);
-      // If there are top recommended actions, optionally hint the first one
-      if (res.data.recommended_actions && res.data.recommended_actions.length > 0) {
+      if (res.data.ai_recommended_action) {
+        const top = res.data.ai_recommended_action;
+        setResolutionNotes(`${top.title}\n${top.explanation}`);
+      } else if (res.data.recommended_actions && res.data.recommended_actions.length > 0) {
         const topRec = res.data.recommended_actions[0];
         setResolutionNotes(`Action taken: ${topRec.action} (${topRec.title})`);
       }
@@ -130,6 +135,27 @@ export const Anomalies: React.FC = () => {
     setInvestigatingId(null);
     setInvestigationData(null);
     setResolutionNotes('');
+  };
+
+  const handleAdoptAiRecommendation = (rec: AIRecommendedActionDetail) => {
+    const stepsFormatted = (rec.suggested_steps || [])
+      .map((step, idx) => `${idx + 1}. ${step}`)
+      .join('\n');
+    const formatted = `${rec.title}\n${rec.explanation}\n\nSuggested Steps:\n${stepsFormatted}\n\nGuidance Source: ${rec.source}${rec.policy_reference ? `\nPolicy Reference: ${rec.policy_reference}` : ''}`;
+    setResolutionNotes(formatted);
+  };
+
+  const handleApplyRecommendedFixDirectly = (rec: AIRecommendedActionDetail) => {
+    if (rec.action_type === 'correct_punch' || rec.title.toLowerCase().includes('correction')) {
+      setResolutionStatus('correction_requested');
+    } else {
+      setResolutionStatus('resolved');
+    }
+    const stepsFormatted = (rec.suggested_steps || [])
+      .map((step, idx) => `${idx + 1}. ${step}`)
+      .join('\n');
+    const formatted = `${rec.title}\n${rec.explanation}\n\nActions Taken:\n${stepsFormatted}\n\nVerified by HR/Admin per ${rec.source}.`;
+    setResolutionNotes(formatted);
   };
 
   const handleApplyRecommendationToNotes = (rec: RecommendedAction) => {
@@ -538,7 +564,7 @@ export const Anomalies: React.FC = () => {
                 </div>
               ) : investigationData ? (
                 <div className="space-y-6">
-                  {/* SECTION 1: ANOMALY DETAILS & ACTUAL VS EXPECTED MATRIX */}
+                  {/* SECTION 1: ANOMALY DETAILS */}
                   <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
                     <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-3">
                       <div>
@@ -563,15 +589,169 @@ export const Anomalies: React.FC = () => {
                           Severity: {investigationData.severity}
                         </span>
                         <span className="px-2.5 py-1 rounded-md text-[11px] font-mono bg-purple-50 text-purple-700 border border-purple-200">
-                          Outlier Score: <strong>{investigationData.score}</strong>
+                          Isolation Forest Score: <strong>{investigationData.score}</strong>
                         </span>
                         <span className="text-secondary text-[11px]">
-                          Flagged: {investigationData.detection_date}
+                          Detection Date: <strong>{investigationData.detection_date}</strong>
                         </span>
                       </div>
                     </div>
 
-                    {/* Actual vs Expected Grid */}
+                    {/* Anomaly Explanation */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold text-dark flex items-center gap-1.5">
+                          <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
+                          <span>Anomaly Explanation & Detection Reason</span>
+                        </span>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-200/70 text-slate-700">
+                          Method: {investigationData.detection_method.replace(/_/g, ' ')}
+                        </span>
+                      </div>
+                      <p className="text-slate-800 text-xs leading-relaxed bg-white border border-slate-200 rounded-lg p-3 font-medium">
+                        {investigationData.why_flagged_explanation || investigationData.explanation}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* SECTION 2: AI-RECOMMENDED ACTION */}
+                  {investigationData.ai_recommended_action && (
+                    <div className="bg-sky-50/70 border border-sky-200 rounded-xl p-4 sm:p-5 shadow-sm space-y-3.5">
+                      {/* Header with Title, Source Badge and Priority */}
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-3 border-b border-sky-200/70">
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 rounded-lg bg-sky-600 text-white flex items-center justify-center shadow-sm">
+                            <Lightbulb className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <span className="text-[11px] font-bold uppercase tracking-wider text-sky-950 block">
+                              AI-Recommended Action
+                            </span>
+                            <span className="text-[10px] text-sky-800">
+                              Automated root-cause corrective guidance synthesized from verified attendance logs
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span
+                            className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border ${
+                              investigationData.ai_recommended_action.priority === 'critical'
+                                ? 'bg-rose-100 text-rose-800 border-rose-300'
+                                : investigationData.ai_recommended_action.priority === 'high'
+                                ? 'bg-amber-100 text-amber-800 border-amber-300'
+                                : 'bg-sky-100 text-sky-800 border-sky-300'
+                            }`}
+                          >
+                            Priority: {investigationData.ai_recommended_action.priority}
+                          </span>
+                          <span
+                            className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold border ${
+                              investigationData.ai_recommended_action.source.includes('NVIDIA')
+                                ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                                : investigationData.ai_recommended_action.source.includes('Groq')
+                                ? 'bg-purple-50 text-purple-800 border-purple-300'
+                                : 'bg-white text-slate-800 border-slate-300'
+                            }`}
+                          >
+                            Source: {investigationData.ai_recommended_action.source}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Recommended Action Title & Executive Explanation */}
+                      <div className="space-y-1.5">
+                        <h4 className="text-sm font-bold text-sky-950 flex items-center gap-2">
+                          <CheckCircle2 className="w-4 h-4 text-sky-600 flex-shrink-0" />
+                          <span>{investigationData.ai_recommended_action.title}</span>
+                        </h4>
+                        <p className="text-xs text-slate-800 leading-relaxed font-medium">
+                          {investigationData.ai_recommended_action.explanation}
+                        </p>
+                      </div>
+
+                      {/* Suggested Steps (Numbered 1-4) */}
+                      {investigationData.ai_recommended_action.suggested_steps?.length > 0 && (
+                        <div className="bg-white/90 border border-sky-200/80 rounded-lg p-3 space-y-2">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-sky-900 block">
+                            Suggested Steps:
+                          </span>
+                          <ol className="space-y-1.5 text-xs text-slate-800">
+                            {investigationData.ai_recommended_action.suggested_steps.map((step, idx) => (
+                              <li key={idx} className="flex items-start gap-2">
+                                <span className="w-5 h-5 rounded-full bg-sky-100 text-sky-800 text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">
+                                  {idx + 1}
+                                </span>
+                                <span className="leading-tight pt-0.5">{step}</span>
+                              </li>
+                            ))}
+                          </ol>
+                        </div>
+                      )}
+
+                      {/* Supporting Attendance Evidence & Related Policy */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                        {/* Supporting Evidence Items */}
+                        {investigationData.ai_recommended_action.supporting_evidence?.length > 0 && (
+                          <div className="bg-white/80 border border-sky-200/70 rounded-lg p-2.5 space-y-1.5">
+                            <span className="text-[10px] font-bold text-sky-900 uppercase tracking-wider block">
+                              Supporting Attendance Evidence:
+                            </span>
+                            <div className="flex flex-wrap gap-1.5">
+                              {investigationData.ai_recommended_action.supporting_evidence.map((ev, i) => (
+                                <span
+                                  key={i}
+                                  className="px-2 py-0.5 bg-slate-50 border border-slate-200 rounded text-[10px] text-slate-700"
+                                >
+                                  {ev}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Policy Reference & Actions */}
+                        <div className="bg-white/80 border border-sky-200/70 rounded-lg p-2.5 flex flex-col justify-between space-y-2">
+                          <div>
+                            <span className="text-[10px] font-bold text-sky-900 uppercase tracking-wider block mb-1">
+                              Related Policy Reference:
+                            </span>
+                            {investigationData.ai_recommended_action.policy_reference ? (
+                              <div className="flex items-center gap-1.5 text-xs text-slate-800 font-medium">
+                                <BookOpen className="w-3.5 h-3.5 text-sky-600 flex-shrink-0" />
+                                <span>{investigationData.ai_recommended_action.policy_reference}</span>
+                              </div>
+                            ) : (
+                              <span className="text-xs text-secondary italic">Standard Workforce Operations Baseline</span>
+                            )}
+                          </div>
+
+                          {/* Action Buttons */}
+                          <div className="flex items-center gap-2 pt-1 border-t border-sky-100 flex-wrap">
+                            <button
+                              type="button"
+                              onClick={() => handleAdoptAiRecommendation(investigationData.ai_recommended_action!)}
+                              className="px-2.5 py-1.5 bg-sky-100 hover:bg-sky-200 text-sky-900 rounded-lg text-[11px] font-semibold transition-colors flex items-center gap-1.5"
+                            >
+                              <span>Adopt into Notes</span>
+                              <ArrowRight className="w-3 h-3" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleApplyRecommendedFixDirectly(investigationData.ai_recommended_action!)}
+                              className="px-2.5 py-1.5 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-[11px] font-semibold transition-colors flex items-center gap-1.5 shadow-sm"
+                            >
+                              <ShieldCheck className="w-3 h-3" />
+                              <span>Apply Recommended Fix</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* SECTION 3: SUPPORTING EVIDENCE */}
+                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
                     <div>
                       <span className="text-[10px] font-bold text-secondary uppercase tracking-wider block mb-2">
                         Actual Attendance vs. Scheduled Baseline Comparison
@@ -652,29 +832,52 @@ export const Anomalies: React.FC = () => {
                         </div>
                       </div>
                     </div>
-                  </div>
 
-                  {/* SECTION 2: WHY WAS THIS FLAGGED? */}
-                  <div className="bg-indigo-50/60 border border-indigo-200/80 rounded-xl p-4 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1.5 font-bold text-indigo-950 text-xs">
-                        <Sparkles className="w-4 h-4 text-indigo-600" />
-                        <span>Why Was This Flagged?</span>
-                      </div>
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-100 text-indigo-800">
-                        {Math.round(investigationData.confidence_score * 100)}% Model Confidence
+                    {/* Historical Context */}
+                    <div className="space-y-2 pt-2 border-t border-slate-200">
+                      <span className="text-[10px] font-bold text-secondary uppercase tracking-wider block">
+                        Historical Context (30-Day Verified Attendance Pattern)
                       </span>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                        <div className="bg-white border border-slate-200 rounded-lg p-2.5">
+                          <span className="text-[10px] text-secondary block">Avg Daily Hours</span>
+                          <span className="font-bold text-dark text-xs block">
+                            {investigationData.historical_context.avg_daily_worked_hours}h / day
+                          </span>
+                          <span className="text-[10px] text-secondary block mt-0.5">30-day baseline</span>
+                        </div>
+                        <div className="bg-white border border-slate-200 rounded-lg p-2.5">
+                          <span className="text-[10px] text-secondary block">Recent Overtime Days</span>
+                          <span className="font-bold text-dark text-xs block">
+                            {investigationData.historical_context.overtime_frequency_count} days
+                          </span>
+                          <span className="text-[10px] text-secondary block mt-0.5">In past 30 days</span>
+                        </div>
+                        <div className="bg-white border border-slate-200 rounded-lg p-2.5">
+                          <span className="text-[10px] text-secondary block">Late Arrival Days</span>
+                          <span className="font-bold text-dark text-xs block">
+                            {investigationData.historical_context.late_arrival_frequency_count} days
+                          </span>
+                          <span className="text-[10px] text-secondary block mt-0.5">In past 30 days</span>
+                        </div>
+                        <div className="bg-white border border-slate-200 rounded-lg p-2.5">
+                          <span className="text-[10px] text-secondary block">Prior Similar Flags</span>
+                          <span className="font-bold text-dark text-xs block">
+                            {investigationData.historical_context.previous_similar_anomalies_count} flags
+                          </span>
+                          <span className="text-[10px] text-secondary block mt-0.5">Repeat occurrence check</span>
+                        </div>
+                      </div>
                     </div>
-                    <p className="text-slate-800 leading-relaxed font-medium">
-                      {investigationData.why_flagged_explanation}
-                    </p>
+
+                    {/* Identified Factors */}
                     {investigationData.possible_causes && investigationData.possible_causes.length > 0 && (
-                      <div className="pt-2 border-t border-indigo-100 flex flex-wrap gap-1.5 items-center">
-                        <span className="text-[10px] text-indigo-900 font-semibold">Identified Factors:</span>
+                      <div className="pt-2 border-t border-slate-200 flex flex-wrap gap-1.5 items-center">
+                        <span className="text-[10px] text-slate-700 font-semibold">Identified Factors:</span>
                         {investigationData.possible_causes.map((cause, i) => (
                           <span
                             key={i}
-                            className="px-2 py-0.5 bg-white border border-indigo-200 rounded text-[10px] text-indigo-800"
+                            className="px-2 py-0.5 bg-white border border-slate-200 rounded text-[10px] text-slate-700"
                           >
                             {cause}
                           </span>
@@ -683,103 +886,7 @@ export const Anomalies: React.FC = () => {
                     )}
                   </div>
 
-                  {/* SECTION 3: HISTORICAL CONTEXT */}
-                  <div className="space-y-2">
-                    <span className="text-[10px] font-bold text-secondary uppercase tracking-wider block">
-                      Historical Context (30-Day Verified Attendance Pattern)
-                    </span>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                      <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
-                        <span className="text-[10px] text-secondary block">Avg Daily Hours</span>
-                        <span className="font-bold text-dark text-sm block">
-                          {investigationData.historical_context.avg_daily_worked_hours}h / day
-                        </span>
-                        <span className="text-[10px] text-secondary block mt-0.5">30-day baseline</span>
-                      </div>
-                      <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
-                        <span className="text-[10px] text-secondary block">Recent Overtime Days</span>
-                        <span className="font-bold text-dark text-sm block">
-                          {investigationData.historical_context.overtime_frequency_count} days
-                        </span>
-                        <span className="text-[10px] text-secondary block mt-0.5">In past 30 days</span>
-                      </div>
-                      <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
-                        <span className="text-[10px] text-secondary block">Late Arrival Days</span>
-                        <span className="font-bold text-dark text-sm block">
-                          {investigationData.historical_context.late_arrival_frequency_count} days
-                        </span>
-                        <span className="text-[10px] text-secondary block mt-0.5">In past 30 days</span>
-                      </div>
-                      <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
-                        <span className="text-[10px] text-secondary block">Prior Similar Flags</span>
-                        <span className="font-bold text-dark text-sm block">
-                          {investigationData.historical_context.previous_similar_anomalies_count} flags
-                        </span>
-                        <span className="text-[10px] text-secondary block mt-0.5">Repeat occurrence check</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* SECTION 4: AI-RECOMMENDED ACTIONS */}
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-bold text-secondary uppercase tracking-wider block">
-                        AI-Recommended Corrective Actions (2–4 Practical Steps)
-                      </span>
-                      <span className="text-[10px] text-secondary italic">
-                        Click "Adopt Action" to insert into resolution notes
-                      </span>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {investigationData.recommended_actions.map((rec) => (
-                        <div
-                          key={rec.id}
-                          className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-sm space-y-2.5 hover:border-indigo-300 transition-colors flex flex-col justify-between"
-                        >
-                          <div className="space-y-1.5">
-                            <div className="flex items-start justify-between gap-2">
-                              <span className="font-bold text-dark text-xs flex items-center gap-1.5">
-                                <CheckCircle2 className="w-3.5 h-3.5 text-indigo-600 flex-shrink-0" />
-                                <span>{rec.title}</span>
-                              </span>
-                              {rec.policy_citation && (
-                                <span className="px-2 py-0.5 bg-slate-100 text-slate-700 rounded text-[9px] font-mono border border-slate-200 truncate max-w-[130px]">
-                                  {rec.policy_citation}
-                                </span>
-                              )}
-                            </div>
-
-                            <p className="text-secondary text-[11px]">
-                              <strong className="text-slate-700">Reason:</strong> {rec.reason}
-                            </p>
-                            <p className="text-slate-800 text-[11px] font-medium bg-slate-50 p-2 rounded-lg border border-slate-100">
-                              <strong className="text-indigo-900">Action:</strong> {rec.action}
-                            </p>
-                            <p className="text-secondary text-[10px]">
-                              <strong>Expected Outcome:</strong> {rec.expected_outcome}
-                            </p>
-                          </div>
-
-                          <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
-                            <span className="text-[10px] text-slate-600">
-                              Auth: <strong>{rec.required_authorization}</strong>
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => handleApplyRecommendationToNotes(rec)}
-                              className="px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded text-[10px] font-semibold transition-colors flex items-center gap-1"
-                            >
-                              <span>Adopt Action</span>
-                              <ArrowRight className="w-2.5 h-2.5" />
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* SECTION 5: RESOLUTION ACTIONS & MANDATORY NOTES */}
+                  {/* SECTION 4: RESOLUTION ACTION & MANDATORY NOTES */}
                   <form onSubmit={handleReviewSubmit} className="space-y-4 pt-4 border-t border-slate-200">
                     <div>
                       <label className="block text-xs font-bold text-dark mb-2">

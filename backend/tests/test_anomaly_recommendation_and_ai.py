@@ -400,3 +400,89 @@ async def test_end_to_end_all_seven_queries_on_actual_db(monkeypatch):
         # Ensure citations are never an empty substitute
         if "No pending anomalies" in content_emp:
             assert len(res_emp.get("citations", [])) == 0
+
+# -------------------------------------------------------------
+# 5. Test AI-Recommended Action Engine & Cache
+# -------------------------------------------------------------
+def test_stephanie_wright_overtime_recommendation():
+    from app.anomaly.recommendation_engine import AnomalyRecommendationService
+
+    comp = AttendanceComparison(
+        actual_worked_minutes=708,
+        expected_worked_minutes=480,
+        actual_overtime_minutes=228,
+        expected_overtime_minutes=0,
+        actual_late_minutes=0,
+        expected_late_minutes=0,
+        actual_break_minutes=60,
+        expected_break_minutes=60,
+        variance_summary="Worked 228m overtime beyond 480m shift"
+    )
+    hist = HistoricalContext(
+        average_worked_minutes_30d=480.0,
+        average_worked_hours_30d=8.0,
+        overtime_frequency_30d=1,
+        late_arrival_frequency_30d=0,
+        previous_similar_anomalies_count=0,
+        assigned_shift_name="General Day Shift",
+        assigned_shift_hours=8.0,
+        grace_period_minutes=15
+    )
+
+    rec = AnomalyRecommendationService.build_rule_based_recommendation(
+        anomaly_type="excessive_overtime",
+        detection_date="2026-11-17",
+        severity="high",
+        score=0.51,
+        detection_method="isolation_forest",
+        comparison=comp,
+        history=hist
+    )
+
+    assert "Verify Overtime Authorization" in rec.title
+    assert "708" in rec.explanation or "substantially higher" in rec.explanation
+    assert len(rec.suggested_steps) >= 4
+    assert any("assigned shift" in s.lower() for s in rec.suggested_steps)
+    assert any("overtime approval" in s.lower() for s in rec.suggested_steps)
+    assert any("supervisor" in s.lower() for s in rec.suggested_steps)
+    assert any("attendance correction" in s.lower() for s in rec.suggested_steps)
+    assert rec.priority in ["high", "medium"]
+    assert rec.policy_reference is not None
+    assert rec.source == "Rule-based Engine"
+    assert rec.evidence_completeness == "complete"
+    assert len(rec.supporting_evidence) >= 5
+
+@pytest.mark.asyncio
+async def test_investigation_returns_ai_recommended_action_and_caches():
+    from sqlalchemy import select
+    from app.anomaly.recommendation_engine.recommendation_service import AnomalyRecommendationService, _RECOMMENDATION_CACHE
+    from app.core.database import AsyncSessionLocal
+
+    async with AsyncSessionLocal() as db:
+        stmt = select(AttendanceAnomaly).limit(1)
+        anom = (await db.execute(stmt)).scalars().first()
+        if not anom:
+            pytest.skip("No anomalies present in database to test investigation")
+
+        # Call investigation
+        res = await AnomalyRecommendationService.investigate_anomaly(
+            db=db,
+            anomaly_id=anom.id,
+            organization_id=anom.organization_id
+        )
+
+        assert res.ai_recommended_action is not None
+        assert res.ai_recommended_action.title.startswith("Recommended Action:")
+        assert len(res.ai_recommended_action.suggested_steps) >= 3
+        assert len(res.ai_recommended_action.supporting_evidence) >= 3
+        assert res.ai_recommended_action.source in [
+            "Rule-based Engine",
+            "AI-assisted (NVIDIA NIM)",
+            "AI-assisted (GroqCloud)"
+        ]
+
+        # Verify caching
+        assert anom.id in _RECOMMENDATION_CACHE
+        cached_tuple = _RECOMMENDATION_CACHE[anom.id]
+        assert cached_tuple[1] == res.ai_recommended_action
+

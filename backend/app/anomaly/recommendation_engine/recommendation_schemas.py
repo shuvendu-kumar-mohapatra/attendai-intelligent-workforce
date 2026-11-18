@@ -44,6 +44,18 @@ class RecommendedAction(BaseModel):
     policy_reference: Optional[str] = None
     is_automated: bool = False
 
+class AIRecommendedActionDetail(BaseModel):
+    title: str
+    explanation: str
+    suggested_steps: List[str]
+    supporting_evidence: List[str]
+    policy_reference: Optional[str] = None
+    priority: str = "medium"
+    source: str = "Rule-based Engine"
+    provider: str = "rule_based"
+    evidence_completeness: str = "complete"
+    action_type: str = "audit_record"
+
 class AnomalyInvestigationResponse(BaseModel):
     anomaly_id: str
     employee_id: str
@@ -69,6 +81,7 @@ class AnomalyInvestigationResponse(BaseModel):
     available_resolutions: List[Dict[str, str]]
     current_status: str
     current_resolution_notes: Optional[str] = None
+    ai_recommended_action: Optional[AIRecommendedActionDetail] = None
 
 class DashboardRecommendationsResponse(BaseModel):
     pending_investigations_count: int

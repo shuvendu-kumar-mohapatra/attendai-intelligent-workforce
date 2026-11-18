@@ -168,6 +168,19 @@ export interface RecommendedAction {
   priority: 'high' | 'medium' | 'low';
 }
 
+export interface AIRecommendedActionDetail {
+  title: string;
+  explanation: string;
+  suggested_steps: string[];
+  supporting_evidence: string[];
+  policy_reference?: string;
+  priority: string;
+  source: string;
+  provider: string;
+  evidence_completeness: string;
+  action_type: string;
+}
+
 export interface AnomalyInvestigationData {
   anomaly_id: string;
   employee_id: string;
@@ -181,11 +194,13 @@ export interface AnomalyInvestigationData {
   detection_method: string;
   status: string;
   why_flagged_explanation: string;
+  explanation?: string;
   confidence_score: number;
   actual_vs_expected: AttendanceComparison;
   historical_context: HistoricalContext;
   recommended_actions: RecommendedAction[];
   possible_causes: string[];
+  ai_recommended_action?: AIRecommendedActionDetail;
 }
 
 export interface DashboardTriageItem {
